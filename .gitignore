@@ -11,3 +11,4 @@ build/
 *.keystore
 *.jks
 tools/capt-ref/hiscoa_cases.bin
+!app/debug.keystore
