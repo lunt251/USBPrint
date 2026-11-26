@@ -13,6 +13,10 @@ Every push is built by GitHub Actions (`.github/workflows/build.yml`). Download 
 
 Requires Android 8.0 (API 26) or newer with USB host (OTG) support.
 
+## Credits
+
+- Canon CAPT support is a Kotlin port of [captdriver](https://github.com/mounaiban/captdriver) (GPL-3.0).
+
 ## License
 
 GPL-3.0-or-later. See `LICENSE`.

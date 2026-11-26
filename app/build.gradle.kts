@@ -46,6 +46,7 @@ kotlin {
 
 dependencies {
     implementation(project(":core-usb"))
+    implementation(project(":core-print"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)

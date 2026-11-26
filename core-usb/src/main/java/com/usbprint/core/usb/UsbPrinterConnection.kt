@@ -34,6 +34,14 @@ class UsbPrinterConnection private constructor(
     @Volatile
     private var closed = false
 
+    /** Soft stop: blocking calls throw [PrintCancelledException] until [beginCleanup] is called. */
+    @Volatile
+    var isStopRequested: Boolean = false
+        private set
+
+    @Volatile
+    private var cleanupMode = false
+
     private val lock = Any()
     private var needsZeroLengthPacket = false
 
@@ -119,6 +127,19 @@ class UsbPrinterConnection private constructor(
         }
     }
 
+    /**
+     * Asks the running driver to stop at its next USB call, so it can send its own
+     * end-of-job sequence (via [beginCleanup]). Use [cancel] if it doesn't respond.
+     */
+    fun requestStop() {
+        isStopRequested = true
+    }
+
+    /** Lets a stopped driver talk to the printer again to send cleanup commands. */
+    fun beginCleanup() {
+        cleanupMode = true
+    }
+
     override fun close() {
         if (closed) return
         closed = true
@@ -128,8 +149,12 @@ class UsbPrinterConnection private constructor(
         }
     }
 
+    /** Throws [PrintCancelledException] if the job was stopped or cancelled. */
+    fun ensureActive() = checkActive()
+
     private fun checkActive() {
         if (isCancelled) throw PrintCancelledException()
+        if (isStopRequested && !cleanupMode) throw PrintCancelledException()
         if (closed) throw IOException("Connection closed")
     }
 

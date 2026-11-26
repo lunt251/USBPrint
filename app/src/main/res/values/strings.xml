@@ -36,10 +36,22 @@
     <string name="detail_raw_id">IEEE 1284 Device ID</string>
     <string name="detail_firmware">Host-based firmware</string>
 
-    <!-- Test page -->
-    <string name="test_page_sent">Test page sent</string>
-    <string name="test_page_unsupported">This printer needs a driver for test pages (coming soon)</string>
-    <string name="test_page_failed">Test page failed: %1$s</string>
+    <!-- Printing -->
+    <string name="print_busy">A print job is already running</string>
+    <string name="print_no_driver">No driver for this printer yet. Please send the printer details to the developer.</string>
+    <string name="print_needs_bidi">This printer needs a two-way USB connection</string>
+    <string name="print_printing">Printing %1$s</string>
+    <string name="print_preparing">Preparing…</string>
+    <string name="print_page_of">Page %1$d of %2$d · %3$d%%</string>
+    <string name="print_cancelling">Cancelling…</string>
+    <string name="print_cancelled">Cancelled</string>
+    <string name="print_done">Done</string>
+    <string name="print_failed">Print failed</string>
+    <string name="print_again">Print again</string>
+    <string name="try_again">Try again</string>
+    <string name="cancel">Cancel</string>
+    <string name="close">Close</string>
+    <string name="detail_driver">Driver</string>
 
     <!-- Placeholders -->
     <string name="coming_soon">Coming in a later build</string>

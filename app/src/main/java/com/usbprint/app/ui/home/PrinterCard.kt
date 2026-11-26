@@ -63,6 +63,7 @@ fun PrinterCard(
     state: PrinterState,
     onAllowAccess: () -> Unit,
     onTestPage: (UsbPrinter) -> Unit,
+    driverNameFor: (UsbPrinter) -> String? = { null },
 ) {
     var expanded by rememberSaveable { mutableStateOf(false) }
     val connected = state as? PrinterState.Connected
@@ -85,7 +86,7 @@ fun PrinterCard(
                 PrinterState.Searching -> LoadingRow(stringResource(R.string.printer_searching))
                 is PrinterState.Identifying -> LoadingRow(stringResource(R.string.printer_identifying, state.label))
                 is PrinterState.NeedsPermission -> PermissionRow(state.label, onAllowAccess)
-                is PrinterState.Connected -> ConnectedContent(state.printer, expanded, onTestPage)
+                is PrinterState.Connected -> ConnectedContent(state.printer, expanded, onTestPage, driverNameFor(state.printer))
             }
         }
     }
@@ -119,7 +120,7 @@ private fun PermissionRow(label: String, onAllow: () -> Unit) {
 }
 
 @Composable
-private fun ConnectedContent(printer: UsbPrinter, expanded: Boolean, onTestPage: (UsbPrinter) -> Unit) {
+private fun ConnectedContent(printer: UsbPrinter, expanded: Boolean, onTestPage: (UsbPrinter) -> Unit, driverName: String?) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             BrandLogo(printer)
@@ -142,7 +143,7 @@ private fun ConnectedContent(printer: UsbPrinter, expanded: Boolean, onTestPage:
         enter = fadeIn() + expandVertically(),
         exit = fadeOut() + shrinkVertically(),
     ) {
-        PrinterDetails(printer)
+        PrinterDetails(printer, driverName)
     }
 }
 
@@ -185,9 +186,10 @@ private fun StatusChip(status: PortStatus?) {
 }
 
 @Composable
-private fun PrinterDetails(printer: UsbPrinter) {
+private fun PrinterDetails(printer: UsbPrinter, driverName: String?) {
     val id = printer.deviceId
     val rows = buildList {
+        add(R.string.detail_driver to driverName)
         add(R.string.detail_manufacturer to printer.manufacturer)
         add(R.string.detail_model to printer.model)
         add(R.string.detail_description to id?.description)

@@ -18,3 +18,4 @@ rootProject.name = "USBPrint"
 
 include(":app")
 include(":core-usb")
+include(":core-print")

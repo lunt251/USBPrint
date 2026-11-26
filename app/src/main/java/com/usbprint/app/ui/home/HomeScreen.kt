@@ -3,9 +3,11 @@ package com.usbprint.app.ui.home
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
@@ -30,29 +32,28 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.usbprint.app.R
-import com.usbprint.app.print.TestPage
 import com.usbprint.app.ui.Routes
 import com.usbprint.core.usb.PrinterState
-import com.usbprint.core.usb.UsbPrinterManager
+import com.usbprint.core.usb.UsbPrinter
 import kotlinx.coroutines.launch
 
 @Composable
 fun HomeScreen(
     printerState: PrinterState,
-    printerManager: UsbPrinterManager,
+    onAllowAccess: () -> Unit,
+    /** Starts a test page; returns an error message if it can't start. */
+    onTestPage: (UsbPrinter) -> String?,
+    driverNameFor: (UsbPrinter) -> String?,
     onOpen: (String) -> Unit,
 ) {
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
-    val context = LocalContext.current
 
     Scaffold(snackbarHost = { SnackbarHost(snackbar) }) { padding ->
         Column(
@@ -74,21 +75,16 @@ fun HomeScreen(
 
                 PrinterCard(
                     state = printerState,
-                    onAllowAccess = printerManager::requestPermission,
+                    onAllowAccess = onAllowAccess,
+                    driverNameFor = driverNameFor,
                     onTestPage = { printer ->
-                        scope.launch {
-                            val message = try {
-                                if (TestPage.print(printerManager, printer)) context.getString(R.string.test_page_sent)
-                                else context.getString(R.string.test_page_unsupported)
-                            } catch (e: Exception) {
-                                context.getString(R.string.test_page_failed, e.message ?: e.javaClass.simpleName)
-                            }
-                            snackbar.showSnackbar(message)
-                        }
+                        onTestPage(printer)?.let { msg -> scope.launch { snackbar.showSnackbar(msg) } }
                     },
                 )
 
                 ActionGrid(onOpen)
+                // Room for the print card so it never covers the grid.
+                Spacer(Modifier.height(120.dp))
             }
         }
     }

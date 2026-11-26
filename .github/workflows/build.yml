@@ -23,6 +23,13 @@ jobs:
         with:
           gradle-version: "8.14"
 
+      - name: Build CAPT reference vectors (captdriver C compressor)
+        run: |
+          gcc -O2 -Itools/capt-ref -o /tmp/hiscoa-golden \
+            tools/capt-ref/golden.c tools/capt-ref/hiscoa-compress.c tools/capt-ref/hiscoa-common.c
+          /tmp/hiscoa-golden tools/capt-ref/hiscoa_cases.bin
+          ls -l tools/capt-ref/hiscoa_cases.bin
+
       - name: Build, test, lint
         run: gradle assembleDebug testDebugUnitTest lintDebug --stacktrace
 
