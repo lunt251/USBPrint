@@ -3,7 +3,7 @@
     <string name="app_name">USBPrint</string>
 
     <!-- Home -->
-    <string name="home_title">Welcome to USBPrint</string>
+    <string name="home_title">Welcome to USBPrint!</string>
     <string name="printer_searching">Searching for printer…</string>
     <string name="printer_identifying">Connecting to %1$s…</string>
     <string name="printer_needs_permission">Allow USBPrint to use this printer</string>

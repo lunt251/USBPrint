@@ -62,10 +62,10 @@ fun PrintCard(
             .padding(12.dp)
             .widthIn(max = 640.dp)
             .fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
+        shape = MaterialTheme.shapes.extraLarge,
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)),
-        shadowElevation = 12.dp,
+        tonalElevation = 3.dp,
+        shadowElevation = 6.dp,
     ) {
         Column(Modifier.padding(20.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {

@@ -5,25 +5,43 @@ import android.os.Build
 import android.provider.Settings
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.material3.FilterChip
-import androidx.compose.ui.platform.LocalContext
-import com.usbprint.core.print.PaperSize
-import androidx.annotation.StringRes
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.ChromeReaderMode
+import androidx.compose.material.icons.automirrored.outlined.OpenInNew
+import androidx.compose.material.icons.outlined.AutoFixHigh
+import androidx.compose.material.icons.outlined.DarkMode
+import androidx.compose.material.icons.outlined.DeleteSweep
+import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material.icons.outlined.Gavel
+import androidx.compose.material.icons.outlined.History
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Palette
+import androidx.compose.material.icons.outlined.Print
+import androidx.compose.material.icons.outlined.Restore
+import androidx.compose.material.icons.outlined.Usb
+import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
@@ -34,14 +52,19 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.usbprint.app.BuildConfig
 import com.usbprint.app.R
 import com.usbprint.app.settings.AppSettings
 import com.usbprint.app.settings.ThemeMode
+import com.usbprint.core.print.PaperSize
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -63,6 +86,7 @@ fun SettingsScreen(
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
         topBar = {
             LargeTopAppBar(
                 title = { Text(stringResource(R.string.tile_settings)) },
@@ -71,6 +95,10 @@ fun SettingsScreen(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                ),
                 scrollBehavior = scrollBehavior,
             )
         },
@@ -79,95 +107,118 @@ fun SettingsScreen(
             Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .verticalScroll(rememberScrollState()),
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp)
+                .navigationBarsPadding(),
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            SectionHeader(R.string.settings_appearance)
-            ListItem(
-                headlineContent = { Text(stringResource(R.string.settings_theme)) },
-                supportingContent = {
-                    val modes = ThemeMode.entries
-                    val labels = listOf(R.string.theme_system, R.string.theme_light, R.string.theme_dark, R.string.theme_black)
-                    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(top = 8.dp)) {
-                        modes.forEachIndexed { i, mode ->
-                            SegmentedButton(
-                                selected = settings.themeMode == mode,
-                                onClick = { onThemeMode(mode) },
-                                shape = SegmentedButtonDefaults.itemShape(i, modes.size),
-                            ) { Text(stringResource(labels[i])) }
-                        }
+            Column(Modifier.widthIn(max = 720.dp).fillMaxWidth()) {
+                Group(R.string.settings_appearance) {
+                    Row(
+                        Icons.Outlined.DarkMode, R.string.settings_theme,
+                        supporting = {
+                            val modes = ThemeMode.entries
+                            val labels = listOf(R.string.theme_system, R.string.theme_light, R.string.theme_dark, R.string.theme_black)
+                            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(top = 8.dp)) {
+                                modes.forEachIndexed { i, mode ->
+                                    SegmentedButton(
+                                        selected = settings.themeMode == mode,
+                                        onClick = { onThemeMode(mode) },
+                                        shape = SegmentedButtonDefaults.itemShape(i, modes.size),
+                                    ) { Text(stringResource(labels[i]), maxLines = 1) }
+                                }
+                            }
+                        },
+                    )
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        SwitchRow(Icons.Outlined.Palette, R.string.settings_dynamic_color, R.string.settings_dynamic_color_summary, settings.dynamicColor, onDynamicColor)
                     }
-                },
-            )
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                SwitchItem(R.string.settings_dynamic_color, R.string.settings_dynamic_color_summary, settings.dynamicColor, onDynamicColor)
+                }
+
+                Group(R.string.settings_printer) {
+                    SwitchRow(Icons.Outlined.Usb, R.string.settings_auto_open, R.string.settings_auto_open_summary, settings.autoOpenOnAttach, onAutoOpen)
+                    Row(
+                        Icons.Outlined.Description, R.string.settings_default_paper,
+                        supporting = {
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp)) {
+                                PaperSize.entries.forEach { p ->
+                                    FilterChip(selected = settings.defaultPaper == p, onClick = { onDefaultPaper(p) }, label = { Text(p.displayName) })
+                                }
+                            }
+                        },
+                    )
+                    Row(
+                        Icons.Outlined.Print, R.string.settings_print_service, R.string.settings_print_service_summary,
+                        trailing = { Icon(Icons.AutoMirrored.Outlined.OpenInNew, null) },
+                        onClick = { runCatching { context.startActivity(Intent(Settings.ACTION_PRINT_SETTINGS)) } },
+                    )
+                }
+
+                Group(R.string.history_title) {
+                    SwitchRow(Icons.Outlined.Restore, R.string.settings_keep_history, R.string.settings_keep_history_summary, settings.keepHistory, onKeepHistory)
+                    Row(Icons.Outlined.History, R.string.history_title, R.string.settings_history_summary, onClick = onOpenHistory)
+                }
+
+                Group(R.string.settings_editing) {
+                    SwitchRow(Icons.Outlined.AutoFixHigh, R.string.settings_remember_edits, R.string.settings_remember_edits_summary, settings.rememberEdits, onRememberEdits)
+                    Row(Icons.Outlined.DeleteSweep, R.string.settings_clear_edits, onClick = onClearEdits)
+                }
+
+                Group(R.string.settings_files_web) {
+                    SwitchRow(Icons.Outlined.VisibilityOff, R.string.files_show_hidden, R.string.settings_show_hidden_summary, settings.showHiddenFiles, onShowHidden)
+                    SwitchRow(Icons.AutoMirrored.Outlined.ChromeReaderMode, R.string.settings_reader_default, R.string.settings_reader_default_summary, settings.readerModeDefault, onReaderDefault)
+                }
+
+                Group(R.string.settings_about) {
+                    Row(Icons.Outlined.Info, R.string.settings_version, supportingText = BuildConfig.VERSION_NAME)
+                    Row(Icons.Outlined.Gavel, R.string.settings_license, R.string.settings_license_value)
+                }
+                Spacer(Modifier.height(24.dp))
             }
-
-            SectionHeader(R.string.settings_printer)
-            SwitchItem(R.string.settings_auto_open, R.string.settings_auto_open_summary, settings.autoOpenOnAttach, onAutoOpen)
-            ListItem(
-                headlineContent = { Text(stringResource(R.string.settings_default_paper)) },
-                supportingContent = {
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp)) {
-                        PaperSize.entries.forEach { p ->
-                            FilterChip(selected = settings.defaultPaper == p, onClick = { onDefaultPaper(p) }, label = { Text(p.displayName) })
-                        }
-                    }
-                },
-            )
-            ListItem(
-                headlineContent = { Text(stringResource(R.string.settings_print_service)) },
-                supportingContent = { Text(stringResource(R.string.settings_print_service_summary)) },
-                modifier = Modifier.clickable {
-                    runCatching { context.startActivity(Intent(Settings.ACTION_PRINT_SETTINGS)) }
-                },
-            )
-            SwitchItem(R.string.settings_keep_history, R.string.settings_keep_history_summary, settings.keepHistory, onKeepHistory)
-            ListItem(
-                headlineContent = { Text(stringResource(R.string.history_title)) },
-                supportingContent = { Text(stringResource(R.string.settings_history_summary)) },
-                modifier = Modifier.clickable(onClick = onOpenHistory),
-            )
-
-            SectionHeader(R.string.settings_editing)
-            SwitchItem(R.string.settings_remember_edits, R.string.settings_remember_edits_summary, settings.rememberEdits, onRememberEdits)
-            ListItem(
-                headlineContent = { Text(stringResource(R.string.settings_clear_edits)) },
-                modifier = Modifier.clickable(onClick = onClearEdits),
-            )
-
-            SectionHeader(R.string.settings_files_web)
-            SwitchItem(R.string.files_show_hidden, R.string.settings_show_hidden_summary, settings.showHiddenFiles, onShowHidden)
-            SwitchItem(R.string.settings_reader_default, R.string.settings_reader_default_summary, settings.readerModeDefault, onReaderDefault)
-
-            SectionHeader(R.string.settings_about)
-            ListItem(
-                headlineContent = { Text(stringResource(R.string.settings_version)) },
-                supportingContent = { Text(BuildConfig.VERSION_NAME) },
-            )
-            ListItem(
-                headlineContent = { Text(stringResource(R.string.settings_license)) },
-                supportingContent = { Text(stringResource(R.string.settings_license_value)) },
-            )
         }
     }
 }
 
+/** Android 16-style settings group: a header, then rows in one rounded container split by 2dp gaps. */
 @Composable
-private fun SectionHeader(@StringRes title: Int) {
+private fun Group(title: Int, content: @Composable ColumnScope.() -> Unit) {
     Text(
         stringResource(title),
         style = MaterialTheme.typography.titleSmall,
         color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 4.dp),
+        modifier = Modifier.padding(start = 16.dp, top = 24.dp, bottom = 8.dp),
+    )
+    Column(
+        Modifier.clip(RoundedCornerShape(24.dp)),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+        content = content,
     )
 }
 
 @Composable
-private fun SwitchItem(@StringRes title: Int, @StringRes summary: Int, checked: Boolean, onChange: (Boolean) -> Unit) {
+private fun Row(
+    icon: ImageVector,
+    title: Int,
+    summary: Int? = null,
+    supportingText: String? = null,
+    supporting: (@Composable () -> Unit)? = null,
+    trailing: (@Composable () -> Unit)? = null,
+    onClick: (() -> Unit)? = null,
+) {
+    val sub: (@Composable () -> Unit)? = supporting
+        ?: summary?.let { s -> @Composable { Text(stringResource(s)) } }
+        ?: supportingText?.let { t -> @Composable { Text(t) } }
     ListItem(
+        modifier = Modifier.clip(RoundedCornerShape(4.dp)).then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
+        colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceBright),
+        leadingContent = { Icon(icon, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
         headlineContent = { Text(stringResource(title)) },
-        supportingContent = { Text(stringResource(summary)) },
-        trailingContent = { Switch(checked = checked, onCheckedChange = onChange) },
-        modifier = Modifier,
+        supportingContent = sub,
+        trailingContent = trailing,
     )
+}
+
+@Composable
+private fun SwitchRow(icon: ImageVector, title: Int, summary: Int, checked: Boolean, onChange: (Boolean) -> Unit) {
+    Row(icon, title, summary, trailing = { Switch(checked = checked, onCheckedChange = onChange) }, onClick = { onChange(!checked) })
 }

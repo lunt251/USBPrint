@@ -12,6 +12,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.CornerSize
+import androidx.compose.ui.graphics.Color
 import com.usbprint.app.ui.common.Island
 import com.usbprint.app.ui.common.Led
 import com.usbprint.app.ui.common.StatusLed
@@ -43,6 +45,7 @@ import androidx.compose.material.icons.filled.Print
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -260,8 +263,8 @@ fun PreviewScreen(app: USBPrintApp, onBack: () -> Unit) {
                     }
                     Box(
                         Modifier.weight(1f).fillMaxWidth().padding(horizontal = 12.dp)
-                            .clip(RoundedCornerShape(24.dp))
-                            .background(MaterialTheme.colorScheme.surfaceContainerLowest),
+                            .clip(MaterialTheme.shapes.extraLarge)
+                            .background(MaterialTheme.colorScheme.surfaceContainer),
                     ) {
                         if (editMode && tab == EditTab.CROP) {
                             CropView(
@@ -304,7 +307,10 @@ fun PreviewScreen(app: USBPrintApp, onBack: () -> Unit) {
                     )
                     AnimatedContent(targetState = editMode, label = "bottom") { editing ->
                         if (editing && tab != null) {
-                            Surface(tonalElevation = 3.dp, shape = MaterialTheme.shapes.extraLarge) {
+                            Surface(
+                                color = MaterialTheme.colorScheme.surfaceContainer,
+                                shape = MaterialTheme.shapes.extraLarge.copy(bottomStart = CornerSize(0.dp), bottomEnd = CornerSize(0.dp)),
+                            ) {
                                 Column(Modifier.navigationBarsPadding()) {
                                     EditControls(
                                         tab = tab,
@@ -320,12 +326,18 @@ fun PreviewScreen(app: USBPrintApp, onBack: () -> Unit) {
                                         darknessSupported = darknessSupported,
                                     )
                                     Row(verticalAlignment = Alignment.CenterVertically) {
-                                        PrimaryScrollableTabRow(selectedTabIndex = tabs.indexOf(tab), edgePadding = 8.dp, modifier = Modifier.weight(1f)) {
+                                        PrimaryScrollableTabRow(
+                                            selectedTabIndex = tabs.indexOf(tab),
+                                            edgePadding = 8.dp,
+                                            containerColor = Color.Transparent,
+                                            divider = {},
+                                            modifier = Modifier.weight(1f),
+                                        ) {
                                             tabs.forEachIndexed { i, t ->
                                                 Tab(selected = t == tab, onClick = { tabIndex = i }, text = { Text(stringResource(t.label)) })
                                             }
                                         }
-                                        Button(onClick = { editMode = false }, modifier = Modifier.padding(horizontal = 8.dp)) {
+                                        Button(onClick = { editMode = false }, shapes = ButtonDefaults.shapes(), modifier = Modifier.padding(horizontal = 8.dp)) {
                                             Text(stringResource(R.string.done))
                                         }
                                     }
@@ -348,13 +360,18 @@ fun PreviewScreen(app: USBPrintApp, onBack: () -> Unit) {
                                         Spacer(Modifier.height(12.dp))
                                     }
                                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                        FilledTonalButton(onClick = { editMode = true }, modifier = Modifier.weight(1f).height(52.dp)) {
+                                        FilledTonalButton(
+                                            onClick = { editMode = true },
+                                            shapes = ButtonDefaults.shapes(),
+                                            modifier = Modifier.weight(1f).height(56.dp),
+                                        ) {
                                             Icon(Icons.Filled.Edit, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.preview_edit))
                                         }
                                         Button(
                                             onClick = ::doPrint,
                                             enabled = selectedPages.isNotEmpty(),
-                                            modifier = Modifier.weight(1f).height(52.dp),
+                                            shapes = ButtonDefaults.shapes(),
+                                            modifier = Modifier.weight(1f).height(56.dp),
                                         ) {
                                             Icon(Icons.Filled.Print, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.preview_print))
                                         }

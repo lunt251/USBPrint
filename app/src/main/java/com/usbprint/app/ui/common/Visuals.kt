@@ -57,15 +57,15 @@ fun StatusLed(state: Led, modifier: Modifier = Modifier, size: Dp = 8.dp, live: 
 @Composable
 fun Island(
     modifier: Modifier = Modifier,
-    radius: Dp = 24.dp,
+    radius: Dp = 28.dp,
     content: @Composable () -> Unit,
 ) {
     Surface(
         modifier = modifier,
         shape = RoundedCornerShape(radius),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)),
-        shadowElevation = 8.dp,
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        tonalElevation = 3.dp,
+        shadowElevation = 3.dp,
         content = content,
     )
 }
@@ -95,9 +95,9 @@ fun PrinterArt(state: Led, feeding: Boolean, modifier: Modifier = Modifier, dimm
         1f, if (state == Led.BUSY || dimmed) 0.3f else 1f,
         infiniteRepeatable(tween(700), RepeatMode.Reverse), label = "blink-a",
     )
-    val bodyTop = lerp(scheme.surfaceContainerHighest, Color.White, 0.22f)
-    val bodyBottom = lerp(scheme.surfaceContainerHighest, Color.White, 0.06f)
-    val slot = scheme.surfaceContainerLowest
+    val bodyTop = lerp(scheme.secondaryContainer, scheme.surfaceBright, 0.35f)
+    val bodyBottom = scheme.secondaryContainer
+    val slot = scheme.onSecondaryContainer.copy(alpha = 0.55f)
 
     Canvas(modifier.alpha(if (dimmed) 0.8f else 1f)) {
         val w = size.width

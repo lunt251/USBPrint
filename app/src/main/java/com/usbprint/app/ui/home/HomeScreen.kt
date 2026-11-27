@@ -1,6 +1,12 @@
 package com.usbprint.app.ui.home
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.MaterialShapes
+import androidx.compose.material3.toShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -71,7 +77,7 @@ fun HomeScreen(
             Column(Modifier.widthIn(max = 840.dp).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(20.dp)) {
                 Text(
                     text = stringResource(R.string.home_title),
-                    style = MaterialTheme.typography.headlineMedium,
+                    style = MaterialTheme.typography.headlineLarge,
                     modifier = Modifier.padding(top = 24.dp, bottom = 4.dp),
                 )
 
@@ -120,29 +126,40 @@ private fun ActionGrid(onOpen: (String) -> Unit) {
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun ActionTile(tile: Tile, colorIndex: Int, onOpen: (String) -> Unit, modifier: Modifier) {
     val scheme = MaterialTheme.colorScheme
+    // Tonal role pairs, so the tiles follow the wallpaper colours.
+    val (container, content, badge) = when (colorIndex) {
+        0 -> Triple(scheme.primaryContainer, scheme.onPrimaryContainer, scheme.primary)
+        1 -> Triple(scheme.tertiaryContainer, scheme.onTertiaryContainer, scheme.tertiary)
+        2 -> Triple(scheme.secondaryContainer, scheme.onSecondaryContainer, scheme.secondary)
+        else -> Triple(scheme.surfaceContainerHighest, scheme.onSurface, scheme.onSurfaceVariant)
+    }
+    val shape = when (colorIndex) {
+        0 -> MaterialShapes.Cookie9Sided
+        1 -> MaterialShapes.Flower
+        2 -> MaterialShapes.Clover4Leaf
+        else -> MaterialShapes.Cookie7Sided
+    }
     Card(
         onClick = { onOpen(tile.route) },
-        modifier = modifier.aspectRatio(1.15f),
-        shape = RoundedCornerShape(24.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, scheme.onSurface.copy(alpha = 0.08f)),
-        colors = CardDefaults.cardColors(containerColor = scheme.surfaceContainer, contentColor = scheme.onSurface),
+        modifier = modifier.aspectRatio(1f),
+        shape = MaterialTheme.shapes.extraLarge,
+        colors = CardDefaults.cardColors(containerColor = container, contentColor = content),
     ) {
         Column(
             Modifier.fillMaxSize().padding(20.dp),
             verticalArrangement = Arrangement.SpaceBetween,
         ) {
-            // The first tile is where most jobs start, so it carries the accent.
-            androidx.compose.material3.Surface(
-                shape = RoundedCornerShape(12.dp),
-                color = if (colorIndex == 0) scheme.primaryContainer else scheme.surfaceContainerHighest,
-                contentColor = if (colorIndex == 0) scheme.onPrimaryContainer else scheme.onSurfaceVariant,
+            Box(
+                Modifier.size(56.dp).clip(shape.toShape()).background(badge),
+                contentAlignment = Alignment.Center,
             ) {
-                Icon(tile.icon, contentDescription = null, modifier = Modifier.padding(10.dp).size(24.dp))
+                Icon(tile.icon, contentDescription = null, tint = container, modifier = Modifier.size(28.dp))
             }
-            Text(stringResource(tile.label), style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(tile.label), style = MaterialTheme.typography.titleLarge)
         }
     }
 }

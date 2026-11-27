@@ -115,11 +115,10 @@ fun PrinterCard(
     Card(
         onClick = { if (connected != null) expanded = !expanded },
         enabled = connected != null,
-        shape = RoundedCornerShape(24.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)),
+        shape = MaterialTheme.shapes.extraLarge,
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainer,
-            disabledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
             disabledContentColor = MaterialTheme.colorScheme.onSurface,
         ),
         modifier = Modifier
@@ -137,22 +136,19 @@ fun PrinterCard(
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun LoadingRow(text: String, hint: String?) {
     Row(verticalAlignment = Alignment.CenterVertically) {
+        LoadingIndicator(Modifier.size(48.dp))
+        Spacer(Modifier.width(16.dp))
         Column(Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                StatusLed(Led.BUSY, live = true)
-                Spacer(Modifier.width(8.dp))
-                Text(text, style = MaterialTheme.typography.titleMedium)
-            }
+            Text(text, style = MaterialTheme.typography.titleMedium)
             if (hint != null) {
                 Spacer(Modifier.height(4.dp))
                 Text(hint, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
-        Spacer(Modifier.width(16.dp))
-        PrinterArt(Led.IDLE, feeding = false, dimmed = true, modifier = Modifier.size(width = 104.dp, height = 84.dp))
     }
 }
 
@@ -264,11 +260,11 @@ private fun StatusChip(status: PortStatus?, printing: Boolean) {
             null -> R.string.status_unknown
         }
     }
-    Surface(shape = RoundedCornerShape(8.dp), color = scheme.surfaceContainerHighest) {
+    Surface(shape = MaterialTheme.shapes.small, color = scheme.secondaryContainer, contentColor = scheme.onSecondaryContainer) {
         Row(Modifier.padding(horizontal = 10.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             StatusLed(if (printing) Led.BUSY else ledFor(status), live = printing)
             Spacer(Modifier.width(8.dp))
-            Text(stringResource(label), style = MaterialTheme.typography.labelLarge, color = scheme.onSurface)
+            Text(stringResource(label), style = MaterialTheme.typography.labelLarge)
         }
     }
 }

@@ -6,7 +6,6 @@ import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialExpressiveTheme
 import androidx.compose.material3.MotionScheme
-import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
@@ -16,17 +15,10 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.Font
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontVariation
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.sp
-import com.usbprint.app.R
 import com.usbprint.app.settings.ThemeMode
 
-// Direction: the desk next to a printer. Graphite neutrals with a slight paper warmth,
-// one toner-orange accent, and the printer's status LED as the signature detail.
+// Wallpaper (dynamic) colour is the default. These schemes are only the fallback for
+// Android 8-11 or when dynamic colour is turned off, seeded from a warm toner orange.
 
 private val DarkScheme = darkColorScheme(
     primary = Color(0xFFF2A65A),
@@ -96,39 +88,6 @@ data class LedColors(val ready: Color, val busy: Color, val error: Color, val id
 
 val LocalLed = staticCompositionLocalOf { LedColors(Color(0xFF4CC38A), Color(0xFFF2A65A), Color(0xFFE5484D), Color(0xFF6F6A63)) }
 
-@OptIn(androidx.compose.ui.text.ExperimentalTextApi::class)
-private fun figtree(weight: Int) = Font(
-    R.font.figtree,
-    weight = FontWeight(weight),
-    variationSettings = FontVariation.Settings(FontVariation.weight(weight)),
-)
-
-private val Figtree = FontFamily(figtree(400), figtree(500), figtree(600))
-
-private fun TextStyle.f(size: Int, line: Int, weight: Int = 400) =
-    copy(fontFamily = Figtree, fontSize = size.sp, lineHeight = line.sp, fontWeight = FontWeight(weight), letterSpacing = 0.sp)
-
-private fun typography(): Typography {
-    val b = Typography()
-    return Typography(
-        displayLarge = b.displayLarge.f(56, 60, 500).copy(letterSpacing = (-1.2).sp),
-        displayMedium = b.displayMedium.f(44, 48, 500).copy(letterSpacing = (-0.8).sp),
-        displaySmall = b.displaySmall.f(36, 40, 500),
-        headlineLarge = b.headlineLarge.f(32, 38, 500),
-        headlineMedium = b.headlineMedium.f(28, 34, 500),
-        headlineSmall = b.headlineSmall.f(24, 30, 500),
-        titleLarge = b.titleLarge.f(20, 26, 500),
-        titleMedium = b.titleMedium.f(16, 22, 500),
-        titleSmall = b.titleSmall.f(14, 20, 500),
-        bodyLarge = b.bodyLarge.f(16, 24),
-        bodyMedium = b.bodyMedium.f(14, 20),
-        bodySmall = b.bodySmall.f(12, 16),
-        labelLarge = b.labelLarge.f(14, 20, 500),
-        labelMedium = b.labelMedium.f(12, 16, 500),
-        labelSmall = b.labelSmall.f(11, 16, 500),
-    )
-}
-
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun USBPrintTheme(
@@ -157,13 +116,18 @@ fun USBPrintTheme(
             surfaceContainer = Color(0xFF121211),
         )
     }
-    val led = if (dark) LedColors(Color(0xFF4CC38A), Color(0xFFF2A65A), Color(0xFFE5484D), Color(0xFF6F6A63))
-    else LedColors(Color(0xFF16A34A), Color(0xFFD97706), Color(0xFFDC2626), Color(0xFF8A847A))
+    // Busy/idle/error follow the scheme; "ready" green is a static semantic colour like error.
+    val led = LedColors(
+        ready = if (dark) Color(0xFF6DD58C) else Color(0xFF1E8E3E),
+        busy = scheme.primary,
+        error = scheme.error,
+        idle = scheme.outline,
+    )
     androidx.compose.runtime.CompositionLocalProvider(LocalLed provides led) {
         MaterialExpressiveTheme(
             colorScheme = scheme,
-            typography = typography(),
-            motionScheme = MotionScheme.standard(),
+            typography = AppTypography,
+            motionScheme = MotionScheme.expressive(),
             content = content,
         )
     }
