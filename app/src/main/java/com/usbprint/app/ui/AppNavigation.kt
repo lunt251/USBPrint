@@ -1,20 +1,11 @@
 package com.usbprint.app.ui
 
-import androidx.compose.animation.AnimatedContentScope
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.SharedTransitionLayout
-import androidx.compose.foundation.background
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.runtime.CompositionLocalProvider
-import com.usbprint.app.ui.common.LocalNavAnimScope
-import com.usbprint.app.ui.common.LocalSharedScope
 import com.usbprint.app.ui.common.axisEnter
 import com.usbprint.app.ui.common.axisExit
 import com.usbprint.app.ui.common.axisPopEnter
 import com.usbprint.app.ui.common.axisPopExit
-import com.usbprint.app.ui.common.containerEnter
-import com.usbprint.app.ui.common.containerExit
-import com.usbprint.app.ui.common.containerTransform
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -63,7 +54,7 @@ object Routes {
     const val HISTORY = "history"
 }
 
-@OptIn(androidx.compose.animation.ExperimentalSharedTransitionApi::class, androidx.compose.material3.ExperimentalMaterial3ExpressiveApi::class)
+@OptIn(androidx.compose.material3.ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun AppNavigation(app: USBPrintApp, settings: AppSettings) {
     val nav = rememberNavController()
@@ -84,8 +75,6 @@ fun AppNavigation(app: USBPrintApp, settings: AppSettings) {
     }
 
     Box(Modifier.fillMaxSize()) {
-        SharedTransitionLayout {
-        CompositionLocalProvider(LocalSharedScope provides this) {
         NavHost(
             navController = nav,
             startDestination = Routes.HOME,
@@ -94,8 +83,7 @@ fun AppNavigation(app: USBPrintApp, settings: AppSettings) {
             popEnterTransition = axisPopEnter,
             popExitTransition = axisPopExit,
         ) {
-            composable(Routes.HOME, exitTransition = containerExit, popEnterTransition = containerEnter) {
-                Anim(this) {
+            composable(Routes.HOME) {
                 HomeScreen(
                     printerState = printerState,
                     onAllowAccess = app.printers::requestPermission,
@@ -106,10 +94,8 @@ fun AppNavigation(app: USBPrintApp, settings: AppSettings) {
                     onOpen = { route -> nav.navigate(route) { launchSingleTop = true } },
                     printing = printUi?.job?.isFinished == false,
                 )
-                }
             }
-            composable(Routes.DOCUMENTS, enterTransition = containerEnter, exitTransition = axisExit, popEnterTransition = axisPopEnter, popExitTransition = containerExit) {
-                TileDestination(this, Routes.DOCUMENTS) {
+            composable(Routes.DOCUMENTS) {
                 FilesScreen(
                     photos = false,
                     showHidden = settings.showHiddenFiles,
@@ -117,10 +103,8 @@ fun AppNavigation(app: USBPrintApp, settings: AppSettings) {
                     onOpen = app.session::open,
                     onBack = { nav.popBackStack() },
                 )
-                            }
-            }
-            composable(Routes.PHOTOS, enterTransition = containerEnter, exitTransition = axisExit, popEnterTransition = axisPopEnter, popExitTransition = containerExit) {
-                TileDestination(this, Routes.PHOTOS) {
+                        }
+            composable(Routes.PHOTOS) {
                 FilesScreen(
                     photos = true,
                     showHidden = settings.showHiddenFiles,
@@ -128,17 +112,14 @@ fun AppNavigation(app: USBPrintApp, settings: AppSettings) {
                     onOpen = app.session::open,
                     onBack = { nav.popBackStack() },
                 )
-                            }
-            }
-            composable(Routes.WEB, enterTransition = containerEnter, exitTransition = axisExit, popEnterTransition = axisPopEnter, popExitTransition = containerExit) {
-                TileDestination(this, Routes.WEB) {
+                        }
+            composable(Routes.WEB) {
                 WebScreen(
                     readerDefault = settings.readerModeDefault,
                     onBack = { nav.popBackStack() },
                     onPrintPdf = { file, title -> app.session.openPdf(file, title) },
                 )
-                            }
-            }
+                        }
             composable(Routes.PREVIEW) {
                 PreviewScreen(app = app, onBack = { nav.popBackStack() })
             }
@@ -160,8 +141,7 @@ fun AppNavigation(app: USBPrintApp, settings: AppSettings) {
                     onClear = { app.history.clear() },
                 )
             }
-            composable(Routes.SETTINGS, enterTransition = containerEnter, exitTransition = axisExit, popEnterTransition = axisPopEnter, popExitTransition = containerExit) {
-                TileDestination(this, Routes.SETTINGS) {
+            composable(Routes.SETTINGS) {
                 SettingsScreen(
                     settings = settings,
                     onBack = { nav.popBackStack() },
@@ -180,10 +160,7 @@ fun AppNavigation(app: USBPrintApp, settings: AppSettings) {
                     onAddPaper = { scope.launch { app.settings.addCustomPaper(it) } },
                     onRemovePaper = { scope.launch { app.settings.removeCustomPaper(it) } },
                 )
-                            }
-            }
-        }
-        }
+                        }
         }
 
         // Keep showing the last state while the card animates out.
@@ -204,25 +181,6 @@ fun AppNavigation(app: USBPrintApp, settings: AppSettings) {
                 )
             }
         }
-    }
-}
-
-/** Provides the nav animation scope to children (for shared bounds). */
-@Composable
-private fun Anim(scope: AnimatedContentScope, content: @Composable () -> Unit) {
-    CompositionLocalProvider(LocalNavAnimScope provides scope, content = content)
-}
-
-/** A screen opened from a home tile: its whole surface is the other end of the tile's container transform. */
-@Composable
-private fun TileDestination(scope: AnimatedContentScope, route: String, content: @Composable () -> Unit) {
-    Anim(scope) {
-        Box(
-            Modifier
-                .fillMaxSize()
-                .containerTransform("tile-$route", MaterialTheme.shapes.extraLarge)
-                .background(MaterialTheme.colorScheme.surface),
-        ) { content() }
     }
 }
 
