@@ -10,6 +10,11 @@
 | :--- | :--- | :--- |
 | Connect a printer over USB OTG and try a test page. | Select pages, set exact dimensions, crop, and clean up scans. | Edit and print without uploading files or signing in. |
 
+<p align="center">
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/1.png" width="245" alt="USBPrint home with Documents, Photos and images, Web pages, and Settings">
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/2.png" width="245" alt="Print preview with paper and content dimensions and two selected pages from a demo document">
+</p>
+
 ## Quick start
 
 1. Download the APK from [GitHub Releases](https://github.com/lunt251/USBPrint/releases) and open it on Android. If prompted, allow installs from the app you used to open the APK.
