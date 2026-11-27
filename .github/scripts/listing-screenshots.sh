@@ -13,6 +13,8 @@ if ((${#managers[@]} == 0)); then
   exit 1
 fi
 cli=$(dirname "${managers[-1]}")
+export PATH="$sdk/platform-tools:$PATH"
+adb start-server
 work=$(mktemp -d)
 export ANDROID_AVD_HOME="$work/avd"
 mkdir -p "$output" "$ANDROID_AVD_HOME"
