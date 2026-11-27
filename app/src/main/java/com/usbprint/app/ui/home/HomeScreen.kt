@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import com.usbprint.app.R
 import com.usbprint.app.ui.Routes
 import com.usbprint.app.ui.common.containerTransform
+import com.usbprint.app.ui.common.lateContent
 import com.usbprint.core.usb.PrinterState
 import com.usbprint.core.usb.UsbPrinter
 import kotlinx.coroutines.launch
@@ -151,7 +152,7 @@ private fun ActionTile(tile: Tile, colorIndex: Int, onOpen: (String) -> Unit, mo
         colors = CardDefaults.cardColors(containerColor = container, contentColor = content),
     ) {
         Column(
-            Modifier.fillMaxSize().padding(20.dp),
+            Modifier.fillMaxSize().lateContent().padding(20.dp),
             verticalArrangement = Arrangement.SpaceBetween,
         ) {
             Box(

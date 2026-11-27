@@ -50,8 +50,9 @@ fun Modifier.containerTransform(key: String, shape: Shape, isSource: Boolean = f
             sharedContentState = rememberSharedContentState(key),
             animatedVisibilityScope = anim,
             enter = if (isSource) {
-                // Closing: the tile's own content returns only for the last stretch, at tile size.
-                fadeIn(tween(CONTAINER_TRANSFORM_MS / 3, delayMillis = CONTAINER_TRANSFORM_MS * 2 / 3, easing = LinearOutSlowInEasing))
+                // Closing: the tile's container returns at once so the shape never disappears; its icon
+                // and label are held back separately with Modifier.lateContent().
+                fadeIn(tween(outMs, delayMillis = outMs / 2, easing = LinearOutSlowInEasing))
             } else {
                 fadeIn(tween(CONTAINER_TRANSFORM_MS * 3 / 5, delayMillis = outMs, easing = LinearOutSlowInEasing))
             },
@@ -82,3 +83,15 @@ val axisPopEnter: AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterT
     { slideInHorizontally(tween(400, easing = EmphasizedDecelerate)) { -it / 6 } + fadeIn(tween(250, delayMillis = 80)) }
 val axisPopExit: AnimatedContentTransitionScope<NavBackStackEntry>.() -> ExitTransition =
     { slideOutHorizontally(tween(250, easing = EmphasizedAccelerate)) { it / 6 } + fadeOut(tween(150)) }
+
+/** Tile content inside a container transform: appears only near the end of the close, at real size. */
+@Composable
+fun Modifier.lateContent(): Modifier {
+    val anim = LocalNavAnimScope.current ?: return this
+    return with(anim) {
+        this@lateContent.animateEnterExit(
+            enter = fadeIn(tween(CONTAINER_TRANSFORM_MS / 3, delayMillis = CONTAINER_TRANSFORM_MS * 2 / 3, easing = LinearOutSlowInEasing)),
+            exit = fadeOut(tween(CONTAINER_TRANSFORM_MS / 5, easing = FastOutLinearInEasing)),
+        )
+    }
+}
