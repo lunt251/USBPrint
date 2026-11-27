@@ -37,6 +37,8 @@ import androidx.compose.material.icons.outlined.Usb
 import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.InputChip
+import androidx.compose.foundation.text.TextAutoSize
+import androidx.compose.ui.unit.sp
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.SquareFoot
 import androidx.compose.material.icons.outlined.Straighten
@@ -145,7 +147,13 @@ fun SettingsScreen(
                                         onClick = { onThemeMode(mode) },
                                         shape = SegmentedButtonDefaults.itemShape(i, modes.size),
                                         icon = {},
-                                    ) { Text(stringResource(labels[i]), maxLines = 1) }
+                                    ) {
+                                        Text(
+                                            stringResource(labels[i]),
+                                            maxLines = 1,
+                                            autoSize = TextAutoSize.StepBased(minFontSize = 10.sp, maxFontSize = MaterialTheme.typography.labelLarge.fontSize),
+                                        )
+                                    }
                                 }
                             }
                         },
