@@ -4,13 +4,22 @@ set -euo pipefail
 apk=${1:?debug APK path required}
 output=${2:?screenshot directory required}
 image='system-images;android-34;default;x86_64'
+sdk=${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}
+shopt -s nullglob
+managers=("$sdk"/cmdline-tools/*/bin/sdkmanager)
+shopt -u nullglob
+if ((${#managers[@]} == 0)); then
+  printf 'No Android SDK command-line tools under %s\n' "$sdk" >&2
+  exit 1
+fi
+cli=$(dirname "${managers[-1]}")
 work=$(mktemp -d)
 export ANDROID_AVD_HOME="$work/avd"
 mkdir -p "$output" "$ANDROID_AVD_HOME"
-sdkmanager "$image"
-printf 'no\n' | avdmanager create avd --name usbprint-listing --package "$image"
+"$cli/sdkmanager" --sdk_root="$sdk" --install emulator "$image"
+printf 'no\n' | "$cli/avdmanager" create avd --name usbprint-listing --package "$image"
 sudo chown "$(id -u):$(id -g)" /dev/kvm
-"$ANDROID_HOME/emulator/emulator" -avd usbprint-listing -port 5556 -no-window -no-snapshot \
+"$sdk/emulator/emulator" -avd usbprint-listing -port 5556 -no-window -no-snapshot \
   -no-boot-anim -no-audio -gpu swiftshader_indirect > "$work/emulator.log" 2>&1 &
 emulator_pid=$!
 cleanup() {
