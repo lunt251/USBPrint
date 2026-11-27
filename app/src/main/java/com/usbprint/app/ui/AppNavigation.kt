@@ -1,5 +1,6 @@
 package com.usbprint.app.ui
 
+import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.material3.MaterialTheme
 import com.usbprint.app.ui.common.axisEnter
@@ -38,6 +39,7 @@ import com.usbprint.app.ui.print.PrintCard
 import com.usbprint.app.ui.settings.SettingsScreen
 import com.usbprint.app.ui.web.WebScreen
 import com.usbprint.core.print.DriverRegistry
+import com.usbprint.core.usb.PrinterState
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import com.usbprint.app.session.LoadState
@@ -176,7 +178,10 @@ fun AppNavigation(app: USBPrintApp, settings: AppSettings) {
                 PrintCard(
                     ui = ui,
                     onCancel = app.printing::cancel,
-                    onPrintAgain = { app.printing.printAgain() },
+                    onPrintAgain = {
+                        app.printing.printAgain()?.let { Toast.makeText(app, it, Toast.LENGTH_SHORT).show() }
+                    },
+                    retryEnabled = (printerState as? PrinterState.Connected)?.printer?.key == ui.retryPrinterKey,
                     onClose = app.printing::dismiss,
                 )
             }

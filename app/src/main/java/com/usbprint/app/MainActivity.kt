@@ -9,10 +9,16 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.getValue
 import androidx.core.content.IntentCompat
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import com.usbprint.app.settings.AppSettings
 import com.usbprint.app.ui.AppNavigation
 import com.usbprint.app.ui.theme.USBPrintTheme
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import java.io.File
 
 class MainActivity : ComponentActivity() {
@@ -29,6 +35,15 @@ class MainActivity : ComponentActivity() {
             }
         }
         if (savedInstanceState == null) handleOpenIntent(intent)
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                // Some devices miss USB broadcasts. Reconcile enumeration while the UI is visible.
+                while (isActive) {
+                    delay(1_000)
+                    app.printers.refresh()
+                }
+            }
+        }
     }
 
     override fun onResume() {

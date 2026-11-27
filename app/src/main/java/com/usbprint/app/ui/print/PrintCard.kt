@@ -45,6 +45,7 @@ fun PrintCard(
     ui: PrintUiState,
     onCancel: () -> Unit,
     onPrintAgain: () -> Unit,
+    retryEnabled: Boolean,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -125,8 +126,10 @@ fun PrintCard(
                         OutlinedButton(onClick = onCancel) { Text(stringResource(R.string.cancel)) }
                     JobState.Done, is JobState.Failed -> {
                         OutlinedButton(onClick = onClose) { Text(stringResource(R.string.close)) }
-                        Button(onClick = onPrintAgain) {
-                            Text(stringResource(if (job is JobState.Done) R.string.print_again else R.string.try_again))
+                        if (ui.retryPrinterKey != null) {
+                            Button(onClick = onPrintAgain, enabled = retryEnabled) {
+                                Text(stringResource(if (job is JobState.Done) R.string.print_again else R.string.try_again))
+                            }
                         }
                     }
                     else -> Unit

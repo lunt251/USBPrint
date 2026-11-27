@@ -17,43 +17,26 @@ class CaptDriver(private val profile: CaptProfile) : PrinterDriver {
     override val id = "capt_${profile.name.lowercase()}"
     override val displayName = "Canon CAPT (${profile.label})"
 
-    private var channel: CaptChannel? = null
-    private var jobId = 0
-    private var inJob = false
+    private var session: CaptSession? = null
 
     override fun print(job: PrintJobContext) {
-        val ch = CaptChannel(job.connection)
-        channel = ch
-        inJob = false
+        job.connection.stallTimeoutMs = 15_000
+        val capt = CaptSession(profile, CaptChannel(job.connection))
+        session = capt
         val copies = job.options.copies.coerceAtLeast(1)
         var sheet = 0
-        for (copy in 0 until copies) {
+        repeat(copies) {
             for (page in 0 until job.document.pageCount) {
                 val prepared = preparePage(job, page) { job.progress(sheet, 0.4f * it) }
-                if (!inJob) {
-                    jobPrologue(ch)
-                    inJob = true
-                }
-                pagePrologue(ch, prepared.params)
-                sendBands(ch, prepared.bands) { job.progress(sheet, 0.4f + 0.3f * it) }
-                pageEpilogue(ch) { job.progress(sheet, 0.7f + 0.3f * it) }
+                capt.printPage(prepared.params, prepared.bands) { job.progress(sheet, it) }
                 sheet++
             }
         }
-        jobEpilogue(ch)
-        inJob = false
+        capt.finish()
+        session = null
     }
 
-    override fun cleanupAfterStop(job: PrintJobContext) {
-        val ch = channel ?: return
-        if (!inJob) return
-        // lbp3010_cancel_cleanup / lbp2900_cancel_cleanup
-        val st = status(ch)
-        ch.sendRecv(CaptCmd.GPIO, if (profile.gpio3010) GPIO_INIT_3010 else GPIO_INIT_2900)
-        sendJobStart(ch, 4, st.pageCompleted)
-        ch.sendRecv(CaptCmd.JOB_END, le16(jobId))
-        inJob = false
-    }
+    override fun abort(): Boolean = session?.abort() ?: true
 
     // ---- page preparation (render + compress, before talking to the printer) ----
 
@@ -113,59 +96,113 @@ class CaptDriver(private val profile: CaptProfile) : PrinterDriver {
         )
     }
 
-    // ---- protocol steps ----
+    override fun supports(printer: UsbPrinter) = printer.bulkInIndex >= 0
 
-    private fun status(ch: CaptChannel): CaptStatus =
-        if (profile.xStatusOnly) ch.xstatus()
-        else ch.basicStatus().also { if (it.flag(0, 8)) ch.xstatus() }
+    companion object {
+        const val DPI = 600
+        private fun lo(v: Int) = (v and 0xFF).toByte()
+        private fun hi(v: Int) = ((v shr 8) and 0xFF).toByte()
+    }
+}
 
-    private fun waitReady(ch: CaptChannel) {
-        if (profile.xStatusOnly) {
-            val deadline = deadline()
-            while (ch.xstatus().busy) { checkDeadline(deadline); ch.pause(CaptChannel.POLL_MS) }
-        } else {
-            val deadline = deadline()
-            while (ch.basicStatus().busy) { checkDeadline(deadline); ch.pause(CaptChannel.POLL_MS) }
+/** One CAPT job on an open channel, including the abort sequence for a partially started job. */
+internal class CaptSession(
+    private val profile: CaptProfile,
+    private val ch: CaptTransport,
+    private val nanoTime: () -> Long = System::nanoTime,
+) {
+    private val currentStatus = CaptStatus()
+    private var beginSent = false
+    private var jobId: Int? = null
+
+    fun printPage(params: ByteArray, bands: List<ByteArray>, progress: (Float) -> Unit) {
+        if (!beginSent) jobPrologue()
+        pagePrologue(params)
+        sendBands(bands) { progress(0.4f + 0.3f * it) }
+        pageEpilogue { progress(0.7f + 0.3f * it) }
+    }
+
+    private fun status(forReadyCheck: Boolean = false): CaptStatus {
+        fun read(cmd: Int) {
+            val reply = ch.sendRecv(cmd)
+            if (reply.size < 2) throw IOException("CAPT: missing printer status")
+            currentStatus.decode(reply, reply.size)
+        }
+        if (profile.xStatusOnly) read(CaptCmd.CHKXSTATUS)
+        else {
+            read(CaptCmd.CHKSTATUS)
+            if (!forReadyCheck && currentStatus.flag(0, 8)) read(CaptCmd.CHKXSTATUS)
+        }
+        return currentStatus
+    }
+
+    private fun awaitStatus(
+        timeoutMs: Long = READY_TIMEOUT_MS,
+        forReadyCheck: Boolean = false,
+        reached: (CaptStatus) -> Boolean,
+    ): CaptStatus {
+        val deadline = nanoTime() + timeoutMs * 1_000_000
+        var emptySince: Long? = null
+        while (true) {
+            val s = status(forReadyCheck)
+            // A completed page wins over an empty tray. Some models leave the paper bit set
+            // after a refill until the next job advances, so don't reject a ready printer up front.
+            if (reached(s)) return s
+            val now = nanoTime()
+            if (s.noPaper) {
+                val since = emptySince ?: now.also { emptySince = it }
+                if (!s.printing || now - since >= PAPER_OUT_GRACE_MS * 1_000_000 || now - deadline >= 0) {
+                    throw PaperOutException()
+                }
+            } else {
+                emptySince = null
+            }
+            if (now - deadline >= 0) throw IOException("Printer stopped responding")
+            ch.pause(POLL_MS)
         }
     }
 
-    private fun jobPrologue(ch: CaptChannel) {
+    private fun waitReady() {
+        awaitStatus(forReadyCheck = true) { !it.busy }
+    }
+
+    private fun jobPrologue() {
         ch.sendRecv(CaptCmd.IDENT)
         ch.pause(1000)
-        ch.status.reset()
-        status(ch)
+        currentStatus.reset()
+        status()
 
         ch.sendRecv(CaptCmd.START_0)
+        beginSent = true
         val reply = ch.sendRecv(CaptCmd.JOB_BEGIN, MAGIC_0)
-        jobId = if (reply.size >= 4) word(reply[2], reply[3]) else 0
+        if (reply.size < 4) throw IOException("CAPT: missing job ID")
+        jobId = word(reply[2], reply[3])
 
         if (profile.gpioInPrologue) {
             ch.sendRecv(CaptCmd.GPIO, GPIO_INIT_3010)
-            waitReady(ch)
+            waitReady()
         }
         if (profile == CaptProfile.LBP6000) {
             ch.sendRecv(CaptCmd.LBP6000_SETUP_0, byteArrayOf(0x01, 0x00))
-            waitReady(ch)
+            waitReady()
         }
-        sendJobStart(ch, 1, 0)
+        sendJobStart(1, 0)
         if (profile == CaptProfile.LBP3000) {
             ch.sendRecv(CaptCmd.LBP3000_SETUP_0, byteArrayOf(0x00, 0x00))
         }
-        waitReady(ch)
+        waitReady()
     }
 
-    private fun pagePrologue(ch: CaptChannel, params: ByteArray) {
-        val st = status(ch)
-        if (st.uninit) {
+    private fun pagePrologue(params: ByteArray) {
+        if (status().uninit) {
             ch.sendRecv(CaptCmd.START_1)
             ch.sendRecv(CaptCmd.START_2)
             ch.sendRecv(CaptCmd.START_3)
-            waitReady(ch)
+            waitReady()
             ch.sendRecv(CaptCmd.UPLOAD_2, MAGIC_2)
-            waitReady(ch)
+            waitReady()
         }
-        val deadline = deadline()
-        while (status(ch).bufferFull) { checkDeadline(deadline); ch.pause(CaptChannel.POLL_MS) }
+        awaitStatus { !it.bufferFull }
 
         ch.sendMulti(
             CaptCmd.SET_PARMS,
@@ -178,14 +215,14 @@ class CaptDriver(private val profile: CaptProfile) : PrinterDriver {
         )
     }
 
-    private fun sendBands(ch: CaptChannel, bands: List<ByteArray>, onProgress: (Float) -> Unit) {
+    private fun sendBands(bands: List<ByteArray>, onProgress: (Float) -> Unit) {
         var sends = 0
         bands.forEachIndexed { i, band ->
             var off = 0
             while (off < band.size) {
                 val n = minOf(0xFF00, band.size - off)
                 sends++
-                if (sends % 16 == 0) ch.waitReady()
+                if (sends % 16 == 0) waitReady()
                 ch.send(CaptCmd.PRINT_DATA, band.copyOfRange(off, off + n))
                 off += n
             }
@@ -193,59 +230,54 @@ class CaptDriver(private val profile: CaptProfile) : PrinterDriver {
         }
     }
 
-    private fun pageEpilogue(ch: CaptChannel, onProgress: (Float) -> Unit) {
+    private fun pageEpilogue(onProgress: (Float) -> Unit) {
         ch.send(CaptCmd.PRINT_DATA_END)
-
-        var deadline = deadline()
-        var st: CaptStatus
-        while (true) {
-            ch.pause(CaptChannel.POLL_MS)
-            st = status(ch)
-            if (st.pageReceived == st.pageDecoding) break
-            checkDeadline(deadline)
-        }
-        val page = st.pageDecoding
+        ch.pause(POLL_MS)
+        val page = awaitStatus { it.pageReceived == it.pageDecoding }.pageDecoding
         onProgress(0.2f)
-        sendJobStart(ch, 2, page)
-        waitReady(ch)
+        sendJobStart(2, page)
+        waitReady()
         ch.sendRecv(CaptCmd.FIRE, le16(page))
-        waitReady(ch)
-        sendJobStart(ch, 6, page)
+        waitReady()
+        sendJobStart(6, page)
         onProgress(0.4f)
 
-        deadline = deadline()
-        while (true) {
-            val s = status(ch)
-            if (s.pageOut == page) break
-            if (s.noPaper && !s.printing) throw PaperOutException()
-            checkDeadline(deadline)
-            ch.pause(CaptChannel.POLL_MS)
-        }
+        awaitStatus(timeoutMs = PAGE_TIMEOUT_MS) { it.pageOut == page }
         onProgress(1f)
     }
 
-    private fun jobEpilogue(ch: CaptChannel) {
-        val deadline = deadline()
-        while (true) {
-            val st = status(ch)
-            if (st.pageCompleted == st.pageDecoding) {
-                sendJobStart(ch, 4, st.pageCompleted)
-                break
-            }
-            checkDeadline(deadline)
-            ch.pause(CaptChannel.POLL_MS)
-        }
-        ch.sendRecv(CaptCmd.JOB_END, le16(jobId))
+    fun finish() {
+        if (!beginSent) return
+        val completed = awaitStatus { it.pageCompleted == it.pageDecoding }.pageCompleted
+        endJob(completed)
     }
 
-    private fun sendJobStart(ch: CaptChannel, fg: Int, page: Int) {
+    fun abort(): Boolean {
+        if (!beginSent) return true
+        if (jobId == null) return false // JOB_BEGIN may have reached the printer without a reply.
+        val completed = status().pageCompleted
+        // captdriver lbp3010_cancel_cleanup / lbp2900_cancel_cleanup, without a busy wait.
+        ch.sendRecv(CaptCmd.GPIO, if (profile.gpio3010) GPIO_INIT_3010 else GPIO_INIT_2900)
+        endJob(completed)
+        return true
+    }
+
+    private fun endJob(completed: Int) {
+        sendJobStart(4, completed)
+        ch.sendRecv(CaptCmd.JOB_END, le16(checkNotNull(jobId)))
+        beginSent = false
+        jobId = null
+    }
+
+    private fun sendJobStart(fg: Int, page: Int) {
+        val id = checkNotNull(jobId)
         val c = Calendar.getInstance()
         val year = c.get(Calendar.YEAR) - 1900
         val buf = ByteArray(32 + 40)
         val head = byteArrayOf(
             0x00, 0x00, 0x00, 0x00, lo(page), hi(page), 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            fg.toByte(), 0x01, lo(jobId), hi(jobId),
+            fg.toByte(), 0x01, lo(id), hi(id),
             0xC4.toByte(), 0xFF.toByte(), // -60
             0x88.toByte(), 0xFF.toByte(), // -120
             lo(year), hi(year), c.get(Calendar.MONTH).toByte(), c.get(Calendar.DAY_OF_MONTH).toByte(),
@@ -256,17 +288,11 @@ class CaptDriver(private val profile: CaptProfile) : PrinterDriver {
         ch.sendRecv(CaptCmd.JOB_SETUP, buf)
     }
 
-    private fun deadline() = System.currentTimeMillis() + WAIT_TIMEOUT_MS
-
-    private fun checkDeadline(deadline: Long) {
-        if (System.currentTimeMillis() > deadline) throw IOException("Printer stopped responding")
-    }
-
-    override fun supports(printer: UsbPrinter) = printer.bulkInIndex >= 0
-
     companion object {
-        const val DPI = 600
-        private const val WAIT_TIMEOUT_MS = 180_000L
+        private const val POLL_MS = 400L
+        private const val READY_TIMEOUT_MS = 30_000L
+        private const val PAGE_TIMEOUT_MS = 120_000L
+        private const val PAPER_OUT_GRACE_MS = 2_000L
 
         private val MAGIC_0 = byteArrayOf(0x00, 0x00, 0x1E, 0x00, 0x00, 0x00, 0x00, 0x00)
         private val MAGIC_2 = byteArrayOf(

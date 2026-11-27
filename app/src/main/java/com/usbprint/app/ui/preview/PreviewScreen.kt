@@ -215,7 +215,10 @@ fun PreviewScreen(app: USBPrintApp, onBack: () -> Unit) {
                             )
                             Spacer(Modifier.width(8.dp))
                             Text(
-                                printer?.let { bidi("${it.displayBrand} ${it.displayModel}") } ?: stringResource(R.string.preview_no_printer_short),
+                                printer?.let { bidi("${it.displayBrand} ${it.displayModel}") } ?: stringResource(
+                                    if (printerState is PrinterState.Disconnected) R.string.printer_disconnected
+                                    else R.string.preview_no_printer_short,
+                                ),
                                 style = MaterialTheme.typography.titleMedium,
                                 maxLines = 1, overflow = TextOverflow.Ellipsis,
                             )

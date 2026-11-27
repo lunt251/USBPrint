@@ -14,6 +14,8 @@ import java.io.OutputStream
 /** Thrown from any blocking call once [UsbPrinterConnection.cancel] has been called. */
 class PrintCancelledException : InterruptedIOException("Print cancelled")
 
+class PrinterDisconnectedException : IOException("USB printer disconnected. Reconnect it before retrying.")
+
 /**
  * A claimed printer interface. Data is written with short-timeout bulk transfers so that
  * [cancel] takes effect within one transfer slice (~[SLICE_TIMEOUT_MS]) instead of waiting
@@ -25,7 +27,10 @@ class UsbPrinterConnection private constructor(
     private val bulkOut: UsbEndpoint,
     private val bulkIn: UsbEndpoint?,
     val printer: UsbPrinter,
+    private val isAttached: () -> Boolean,
 ) : Closeable {
+
+    @Volatile private var disconnected = false
 
     @Volatile
     var isCancelled: Boolean = false
@@ -34,13 +39,11 @@ class UsbPrinterConnection private constructor(
     @Volatile
     private var closed = false
 
-    /** Soft stop: blocking calls throw [PrintCancelledException] until [beginCleanup] is called. */
+    /** Soft stop: blocking calls throw [PrintCancelledException] outside the cleanup window. */
     @Volatile
-    var isStopRequested: Boolean = false
-        private set
+    private var stopRequested = false
 
-    @Volatile
-    private var cleanupMode = false
+    private var cleanupDeadlineNanos: Long? = null
 
     private val lock = Any()
     private var needsZeroLengthPacket = false
@@ -82,29 +85,35 @@ class UsbPrinterConnection private constructor(
                 stalledSince = 0L
                 needsZeroLengthPacket = sent % bulkOut.maxPacketSize == 0
             } else {
-                // Timeout or NAK: the printer is busy. Keep trying unless cancelled or stalled too long.
-                val now = System.currentTimeMillis()
+                // Android returns the same error for a timeout and a removed device.
+                ensureAttached()
+                val now = System.nanoTime()
                 if (stalledSince == 0L) stalledSince = now
-                if (now - stalledSince > stallTimeoutMs) throw IOException("Printer not accepting data")
+                if (now - stalledSince >= stallTimeoutMs * 1_000_000) throw IOException("Printer not accepting data")
             }
         }
+        checkActive()
     }
 
     /** Terminates the current bulk transfer if it ended on a packet boundary. */
     fun flush() {
         checkActive()
         if (needsZeroLengthPacket) {
-            synchronized(lock) { connection.bulkTransfer(bulkOut, ByteArray(0), 0, SLICE_TIMEOUT_MS) }
+            val sent = synchronized(lock) { connection.bulkTransfer(bulkOut, ByteArray(0), 0, SLICE_TIMEOUT_MS) }
+            if (sent < 0) ensureAttached()
             needsZeroLengthPacket = false
         }
+        checkActive()
     }
 
-    /** Reads back-channel data (bidirectional printers only). Returns 0 on timeout, -1 if unsupported. */
+    /** Reads back-channel data. Returns 0 on timeout, -1 if unsupported; throws on detach. */
     fun read(buffer: ByteArray, offset: Int, length: Int, timeoutMs: Int): Int {
-        val ep = bulkIn ?: return -1
         checkActive()
+        val ep = bulkIn ?: return -1
         val n = synchronized(lock) { connection.bulkTransfer(ep, buffer, offset, length, timeoutMs) }
-        return if (n < 0) 0 else n
+        if (n < 0) ensureAttached()
+        checkActive()
+        return n.coerceAtLeast(0)
     }
 
     fun portStatus(): PortStatus? = if (closed) null else UsbPrinterClass.getPortStatus(connection, iface)
@@ -117,11 +126,11 @@ class UsbPrinterConnection private constructor(
      * (e.g. PJL UEL) sent after the reset.
      */
     fun cancel(trailer: ByteArray? = null) {
-        if (closed) return
-        isCancelled = true
         synchronized(lock) {
+            if (closed || disconnected || isCancelled || !isAttached()) return
+            isCancelled = true
             UsbPrinterClass.softReset(connection, iface)
-            if (trailer != null && trailer.isNotEmpty()) {
+            if (!disconnected && trailer != null && trailer.isNotEmpty()) {
                 connection.bulkTransfer(bulkOut, trailer, trailer.size, SLICE_TIMEOUT_MS)
             }
         }
@@ -132,29 +141,49 @@ class UsbPrinterConnection private constructor(
      * end-of-job sequence (via [beginCleanup]). Use [cancel] if it doesn't respond.
      */
     fun requestStop() {
-        isStopRequested = true
+        stopRequested = true
     }
 
-    /** Lets a stopped driver talk to the printer again to send cleanup commands. */
-    fun beginCleanup() {
-        cleanupMode = true
+    /** Lets the print worker attempt cleanup without getting stuck on a stalled printer. */
+    fun beginCleanup(timeoutMs: Long) {
+        cleanupDeadlineNanos = System.nanoTime() + timeoutMs * 1_000_000
     }
 
-    override fun close() {
-        if (closed) return
-        closed = true
-        synchronized(lock) {
-            connection.releaseInterface(iface)
-            connection.close()
+    internal fun markDisconnected() {
+        disconnected = true
+    }
+
+    /** Rechecks enumeration after a failed transfer, or before reporting a job complete. */
+    fun ensureAttached() {
+        if (disconnected || !isAttached()) {
+            markDisconnected()
+            throw PrinterDisconnectedException()
         }
     }
 
-    /** Throws [PrintCancelledException] if the job was stopped or cancelled. */
+    override fun close() {
+        synchronized(lock) {
+            if (closed) return
+            closed = true
+            try {
+                connection.releaseInterface(iface)
+            } finally {
+                connection.close()
+            }
+        }
+    }
+
     fun ensureActive() = checkActive()
 
     private fun checkActive() {
+        if (disconnected) throw PrinterDisconnectedException()
         if (isCancelled) throw PrintCancelledException()
-        if (isStopRequested && !cleanupMode) throw PrintCancelledException()
+        val deadline = cleanupDeadlineNanos
+        if (deadline != null) {
+            if (System.nanoTime() - deadline >= 0) throw InterruptedIOException("Printer cleanup timed out")
+        } else if (stopRequested) {
+            throw PrintCancelledException()
+        }
         if (closed) throw IOException("Connection closed")
     }
 
@@ -162,17 +191,21 @@ class UsbPrinterConnection private constructor(
         private const val CHUNK_SIZE = 16 * 1024
         private const val SLICE_TIMEOUT_MS = 250
 
-        internal fun open(manager: UsbManager, device: UsbDevice, printer: UsbPrinter): UsbPrinterConnection {
+        internal fun open(
+            manager: UsbManager, device: UsbDevice, printer: UsbPrinter, isAttached: () -> Boolean,
+        ): UsbPrinterConnection {
             val iface = device.getInterface(printer.interfaceIndex)
-            val conn = manager.openDevice(device) ?: throw IOException("Cannot open USB printer")
+            fun openFailure(message: String): IOException =
+                if (isAttached()) IOException(message) else PrinterDisconnectedException()
+            val conn = manager.openDevice(device) ?: throw openFailure("Cannot open USB printer")
             if (!conn.claimInterface(iface, true)) {
                 conn.close()
-                throw IOException("Cannot claim USB printer interface")
+                throw openFailure("Cannot claim USB printer interface")
             }
             if (iface.alternateSetting > 0) conn.setInterface(iface)
             val out = iface.getEndpoint(printer.bulkOutIndex)
             val inp = if (printer.bulkInIndex >= 0) iface.getEndpoint(printer.bulkInIndex) else null
-            return UsbPrinterConnection(conn, iface, out, inp, printer)
+            return UsbPrinterConnection(conn, iface, out, inp, printer, isAttached)
         }
     }
 }

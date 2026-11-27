@@ -1,6 +1,7 @@
 package com.usbprint.core.print
 
 import com.usbprint.core.usb.PrintCancelledException
+import com.usbprint.core.usb.PrinterDisconnectedException
 import com.usbprint.core.usb.UsbPrinter
 import com.usbprint.core.usb.UsbPrinterConnection
 import com.usbprint.core.usb.UsbPrinterManager
@@ -20,11 +21,7 @@ sealed interface JobState {
     val isFinished: Boolean get() = this is Cancelled || this is Done || this is Failed
 }
 
-/**
- * One print job on its own thread. [cancel] is safe from the UI thread and returns immediately:
- * the driver is stopped at its next USB call (within ~250 ms), gets [CLEANUP_BUDGET_MS] to end the
- * job cleanly, then the printer is soft-reset regardless.
- */
+/** A print worker owns the USB connection until any cleanup is complete. */
 class PrintJob(
     private val manager: UsbPrinterManager,
     val printer: UsbPrinter,
@@ -36,61 +33,77 @@ class PrintJob(
     private val _state = MutableStateFlow<JobState>(JobState.Preparing)
     val state: StateFlow<JobState> = _state.asStateFlow()
 
-    @Volatile private var connection: UsbPrinterConnection? = null
+    private val lock = Any()
     @Volatile private var cancelRequested = false
-    private var worker: Thread? = null
+    private var connection: UsbPrinterConnection? = null
+    private var started = false
 
     fun start() {
-        check(worker == null) { "Job already started" }
-        worker = thread(name = "usbprint-job", isDaemon = true) { run() }
+        check(!started) { "Job already started" }
+        started = true
+        thread(name = "usbprint-job", isDaemon = true) { run() }
     }
 
     fun cancel() {
-        if (_state.value.isFinished || cancelRequested) return
-        cancelRequested = true
-        _state.value = JobState.Cancelling
-        val conn = connection ?: return // not connected yet: run() sees the flag
-        conn.requestStop()
-        // Watchdog: if the driver's cleanup doesn't finish quickly, hard-reset the printer.
-        thread(name = "usbprint-cancel", isDaemon = true) {
-            worker?.join(CLEANUP_BUDGET_MS)
-            if (worker?.isAlive == true) conn.cancel(driver.cancelTrailer)
+        synchronized(lock) {
+            if (_state.value.isFinished || cancelRequested) return
+            cancelRequested = true
+            _state.value = JobState.Cancelling
+            connection?.requestStop()
         }
     }
 
     private fun run() {
         var conn: UsbPrinterConnection? = null
-        try {
+        val result = try {
             if (cancelRequested) throw PrintCancelledException()
             conn = manager.open(printer)
-            connection = conn
-            if (cancelRequested) conn.requestStop()
+            synchronized(lock) {
+                connection = conn
+                if (cancelRequested) conn.requestStop()
+            }
             val ctx = PrintJobContext(conn, document, options) { page, total, fraction ->
-                if (!cancelRequested) _state.value = JobState.Printing(page, total, fraction)
-            }
-            try {
-                driver.print(ctx)
-                _state.value = JobState.Done
-            } catch (e: PrintCancelledException) {
-                if (!conn.isCancelled) {
-                    conn.beginCleanup()
-                    runCatching { driver.cleanupAfterStop(ctx) }
+                synchronized(lock) {
+                    if (!cancelRequested) _state.value = JobState.Printing(page, total, fraction)
                 }
-                if (!conn.isCancelled) conn.cancel(driver.cancelTrailer)
-                _state.value = JobState.Cancelled
             }
-        } catch (e: PrintCancelledException) {
-            _state.value = JobState.Cancelled
+            conn.ensureActive()
+            driver.print(ctx)
+            conn.ensureAttached()
+            conn.ensureActive()
+            JobState.Done
         } catch (e: Throwable) {
-            _state.value = if (cancelRequested) JobState.Cancelled
-            else JobState.Failed(e.message ?: e.javaClass.simpleName)
+            val failure = if (e is PrinterDisconnectedException) e else {
+                // A cable can disappear between the last I/O call and failure handling.
+                try {
+                    conn?.ensureAttached()
+                    if (conn != null) {
+                        conn.beginCleanup(CLEANUP_BUDGET_MS)
+                        val stopped = runCatching { driver.abort() }.getOrDefault(false)
+                        if (!stopped) runCatching { conn.cancel(driver.cancelTrailer) }
+                        conn.ensureAttached()
+                    }
+                    e
+                } catch (detached: PrinterDisconnectedException) {
+                    detached
+                }
+            }
+            when {
+                failure is PrinterDisconnectedException -> JobState.Failed(failure.message.orEmpty())
+                failure is PrintCancelledException || cancelRequested -> JobState.Cancelled
+                else -> JobState.Failed(failure.message ?: failure.javaClass.simpleName)
+            }
         } finally {
             runCatching { conn?.close() }
+        }
+        // Do not offer retry until the failed job has released the claimed interface.
+        synchronized(lock) {
             connection = null
+            _state.value = result
         }
     }
 
     companion object {
-        const val CLEANUP_BUDGET_MS = 3_000L
+        private const val CLEANUP_BUDGET_MS = 3_000L
     }
 }

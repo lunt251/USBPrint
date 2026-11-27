@@ -83,13 +83,19 @@ internal fun bcd(lo: Byte, hi: Byte): Int {
     return a * 1000 + b * 100 + c * 10 + d
 }
 
+internal interface CaptTransport {
+    fun send(cmd: Int, data: ByteArray? = null)
+    fun sendMulti(cmd: Int, parts: List<Pair<Int, ByteArray?>>)
+    fun sendRecv(cmd: Int, data: ByteArray? = null): ByteArray
+    fun pause(ms: Long)
+}
+
 /** CAPT packet framing over a USB printer connection: `cmd(LE16) len(LE16) payload`. */
-internal class CaptChannel(private val conn: UsbPrinterConnection) {
+internal class CaptChannel(private val conn: UsbPrinterConnection) : CaptTransport {
 
     private val rx = ByteArray(0x10000)
-    val status = CaptStatus()
 
-    fun frame(cmd: Int, data: ByteArray?): ByteArray {
+    private fun frame(cmd: Int, data: ByteArray?): ByteArray {
         val size = data?.size ?: 0
         val out = ByteArray(4 + size)
         out[0] = cmd.toByte(); out[1] = (cmd shr 8).toByte()
@@ -98,14 +104,14 @@ internal class CaptChannel(private val conn: UsbPrinterConnection) {
         return out
     }
 
-    fun send(cmd: Int, data: ByteArray? = null) {
+    override fun send(cmd: Int, data: ByteArray?) {
         val f = frame(cmd, data)
         conn.write(f)
         conn.flush()
     }
 
     /** Several sub-commands wrapped in one outer command (CAPT_SET_PARMS). */
-    fun sendMulti(cmd: Int, parts: List<Pair<Int, ByteArray?>>) {
+    override fun sendMulti(cmd: Int, parts: List<Pair<Int, ByteArray?>>) {
         val body = parts.map { (c, d) -> frame(c, d) }
         val total = 4 + body.sumOf { it.size }
         val out = ByteArray(total)
@@ -118,10 +124,11 @@ internal class CaptChannel(private val conn: UsbPrinterConnection) {
     }
 
     /** Sends a command and returns the reply payload (without the 4-byte header). */
-    fun sendRecv(cmd: Int, data: ByteArray? = null): ByteArray {
+    override fun sendRecv(cmd: Int, data: ByteArray?): ByteArray {
         send(cmd, data)
-        var got = readSome(0)
-        while (got < 4) got = readSome(got)
+        val deadline = System.nanoTime() + REPLY_TIMEOUT_MS * 1_000_000
+        var got = readSome(0, deadline)
+        while (got < 4) got = readSome(got, deadline)
         if (word(rx[0], rx[1]) != cmd) {
             throw IOException("CAPT: bad reply to %04X: %02X %02X".format(cmd, rx[0], rx[1]))
         }
@@ -129,7 +136,7 @@ internal class CaptChannel(private val conn: UsbPrinterConnection) {
             val declared = word(rx[2], rx[3])
             if (declared == got || bcd(rx[2], rx[3]) == got) break
             if (declared > got) {
-                got = readSome(got)
+                got = readSome(got, deadline)
                 continue
             }
             throw IOException("CAPT: bad reply size for %04X: declared %d, got %d".format(cmd, declared, got))
@@ -137,50 +144,30 @@ internal class CaptChannel(private val conn: UsbPrinterConnection) {
         return rx.copyOfRange(4, got)
     }
 
-    private fun readSome(offset: Int): Int {
-        val deadline = System.currentTimeMillis() + REPLY_TIMEOUT_MS
-        while (true) {
-            val n = conn.read(rx, offset, rx.size - offset, 500)
+    private fun readSome(offset: Int, deadline: Long): Int {
+        while (System.nanoTime() - deadline < 0) {
+            val n = conn.read(rx, offset, rx.size - offset, 250)
             if (n < 0) throw IOException("CAPT needs a bidirectional printer connection")
             if (n > 0) return offset + n
-            if (System.currentTimeMillis() > deadline) throw IOException("Printer did not reply")
         }
+        throw IOException("Printer did not reply")
     }
 
-    fun xstatus(): CaptStatus {
-        val r = sendRecv(CaptCmd.CHKXSTATUS)
-        status.decode(r, r.size)
-        return status
-    }
-
-    fun basicStatus(): CaptStatus {
-        val r = sendRecv(CaptCmd.CHKSTATUS)
-        status.decode(r, r.size)
-        return status
-    }
-
-    fun waitXReady() {
-        while (xstatus().busy) pause(POLL_MS)
-    }
-
-    fun waitReady() {
-        while (basicStatus().busy) pause(POLL_MS)
-    }
-
-    /** Sleep that wakes up immediately when the job is cancelled. */
-    fun pause(ms: Long) {
-        val end = System.currentTimeMillis() + ms
-        while (System.currentTimeMillis() < end) {
+    override fun pause(ms: Long) {
+        var remaining = ms
+        while (remaining > 0) {
             conn.ensureActive()
-            Thread.sleep(minOf(50L, end - System.currentTimeMillis()).coerceAtLeast(1))
+            val sleep = minOf(50L, remaining)
+            Thread.sleep(sleep)
+            remaining -= sleep
         }
+        conn.ensureActive()
     }
 
     companion object {
-        const val POLL_MS = 400L
         private const val REPLY_TIMEOUT_MS = 15_000L
     }
 }
 
-/** Raised when the printer reports no paper during a page. */
-class PaperOutException : IOException("Printer is out of paper")
+/** CAPT reported an empty tray while the job could not advance. */
+internal class PaperOutException : IOException("Printer is out of paper. Load paper before retrying.")

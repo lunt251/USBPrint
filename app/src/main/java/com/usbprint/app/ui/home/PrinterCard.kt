@@ -2,9 +2,7 @@ package com.usbprint.app.ui.home
 
 import android.annotation.SuppressLint
 import android.content.Intent
-import androidx.compose.foundation.BorderStroke
 import com.usbprint.app.ui.common.Led
-import com.usbprint.app.ui.common.PrinterArt
 import com.usbprint.app.ui.common.StatusLed
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.LazyColumn
@@ -20,7 +18,6 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -32,13 +29,11 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
-import androidx.compose.material.icons.outlined.Usb
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -80,7 +75,7 @@ fun PrinterCard(
     /** (id, name) of every built-in driver, for the manual picker. */
     driverChoices: List<Pair<String, String>> = emptyList(),
     onSelectDriver: (UsbPrinter, String?) -> Unit = { _, _ -> },
-    /** A job is running: the drawn printer feeds paper. */
+    /** A job is running: the status chip shows printing. */
     printing: Boolean = false,
 ) {
     var expanded by rememberSaveable { mutableStateOf(false) }
@@ -128,6 +123,7 @@ fun PrinterCard(
         Column(Modifier.padding(20.dp).heightIn(min = 56.dp)) {
             when (state) {
                 PrinterState.Searching -> LoadingRow(stringResource(R.string.printer_searching), stringResource(R.string.printer_searching_hint))
+                PrinterState.Disconnected -> DisconnectedRow()
                 is PrinterState.Identifying -> LoadingRow(stringResource(R.string.printer_identifying, state.label), null)
                 is PrinterState.NeedsPermission -> PermissionRow(state.label, onAllowAccess)
                 is PrinterState.Connected -> ConnectedContent(state.printer, expanded, printing, onTestPage, driverNameFor(state.printer)) { picking = true }
@@ -148,6 +144,36 @@ private fun LoadingRow(text: String, hint: String?) {
                 Spacer(Modifier.height(4.dp))
                 Text(hint, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
+        }
+    }
+}
+
+@Composable
+private fun PrinterGlyph() {
+    Surface(
+        modifier = Modifier.size(56.dp),
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Icon(painterResource(R.drawable.ic_printer), contentDescription = null, modifier = Modifier.size(32.dp))
+        }
+    }
+}
+
+@Composable
+private fun DisconnectedRow() {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+        PrinterGlyph()
+        Column(Modifier.weight(1f)) {
+            Text(stringResource(R.string.printer_disconnected), style = MaterialTheme.typography.titleMedium)
+            Spacer(Modifier.height(4.dp))
+            Text(
+                stringResource(R.string.printer_disconnected_hint),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }
@@ -188,7 +214,8 @@ private fun ConnectedContent(
     driverName: String?,
     onChangeDriver: () -> Unit,
 ) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+        PrinterGlyph()
         Column(Modifier.weight(1f)) {
             BrandLogo(printer)
             Spacer(Modifier.height(4.dp))
@@ -196,12 +223,6 @@ private fun ConnectedContent(
             Spacer(Modifier.height(12.dp))
             StatusChip(printer.status, printing)
         }
-        Spacer(Modifier.width(16.dp))
-        PrinterArt(
-            if (printing) Led.BUSY else ledFor(printer.status),
-            feeding = printing,
-            modifier = Modifier.size(width = 112.dp, height = 92.dp),
-        )
     }
     Spacer(Modifier.height(16.dp))
     Row(verticalAlignment = Alignment.CenterVertically) {

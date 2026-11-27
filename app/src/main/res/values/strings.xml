@@ -12,6 +12,8 @@
     <string name="printer_tap_for_details">Details</string>
     <string name="printer_hide_details">Hide details</string>
     <string name="printer_searching_hint">Plug a printer into the USB port</string>
+    <string name="printer_disconnected">USB printer disconnected</string>
+    <string name="printer_disconnected_hint">Reconnect the printer with its USB cable</string>
     <string name="status_printing">Printing</string>
     <string name="pages_title">Pages</string>
     <string name="pages_selected">%1$d of %2$d selected</string>

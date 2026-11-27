@@ -14,6 +14,7 @@ import com.usbprint.core.print.PrintJob
 import com.usbprint.core.print.PrintOptions
 import com.usbprint.core.print.PrinterDriver
 import com.usbprint.core.print.TestPageDocument
+import com.usbprint.core.usb.PrinterState
 import com.usbprint.core.usb.UsbPrinter
 import com.usbprint.core.usb.UsbPrinterManager
 import kotlinx.coroutines.CoroutineScope
@@ -31,6 +32,7 @@ data class PrintUiState(
     val printerName: String,
     val driverName: String,
     val job: JobState,
+    val retryPrinterKey: String?,
 )
 
 data class ResolvedDriver(val driver: PrinterDriver, val note: String?, val manual: Boolean)
@@ -87,11 +89,19 @@ class PrintController(
 
         val job = PrintJob(manager, printer, driver, document, options, title)
         current = job
-        lastRequest = { print(printer, document, title, options, null, onFinished) }
+        val retryKey = printer.key.takeIf { onFinished == null }
+        // System print jobs must be retried from Android's print spooler, which owns their PDF.
+        lastRequest = retryKey?.let { key ->
+            {
+                val connected = (manager.state.value as? PrinterState.Connected)?.printer
+                if (connected?.key == key) print(connected, document, title, options)
+                else context.getString(R.string.printer_disconnected)
+            }
+        }
         collector?.cancel()
         collector = scope.launch {
             job.state.collect { s ->
-                _ui.value = PrintUiState(title, "${printer.displayBrand} ${printer.displayModel}", driver.displayName, s)
+                _ui.value = PrintUiState(title, "${printer.displayBrand} ${printer.displayModel}", driver.displayName, s, retryKey)
                 if (s.isFinished) {
                     historyId?.let { history.setStatus(it, statusLabel(s)) }
                     onFinished?.invoke(s)

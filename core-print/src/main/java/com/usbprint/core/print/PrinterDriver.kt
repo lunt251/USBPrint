@@ -36,10 +36,10 @@ interface PrinterDriver {
     fun print(job: PrintJobContext)
 
     /**
-     * Called after a soft stop interrupted [print]; the connection accepts I/O again so the
-     * driver can end the job cleanly. Keep it short: a hard reset follows if it takes too long.
+     * Ends an interrupted job within the connection's cleanup budget. Return true if no reset
+     * is needed, or false if the transport should fall back to a USB soft reset.
      */
-    fun cleanupAfterStop(job: PrintJobContext) {}
+    fun abort(): Boolean = false
 
     /** Bytes sent after the USB soft reset on a hard cancel (e.g. PJL UEL). */
     val cancelTrailer: ByteArray? get() = null
