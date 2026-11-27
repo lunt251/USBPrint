@@ -38,6 +38,9 @@ import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.InputChip
 import androidx.compose.foundation.text.TextAutoSize
+import androidx.compose.foundation.text.BasicText
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.ui.unit.sp
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.SquareFoot
@@ -148,8 +151,9 @@ fun SettingsScreen(
                                         shape = SegmentedButtonDefaults.itemShape(i, modes.size),
                                         icon = {},
                                     ) {
-                                        Text(
+                                        BasicText(
                                             stringResource(labels[i]),
+                                            style = LocalTextStyle.current.copy(color = LocalContentColor.current),
                                             maxLines = 1,
                                             autoSize = TextAutoSize.StepBased(minFontSize = 10.sp, maxFontSize = MaterialTheme.typography.labelLarge.fontSize),
                                         )
