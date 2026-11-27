@@ -1,7 +1,6 @@
 package com.usbprint.app.ui.home
 
 import android.content.Intent
-import androidx.annotation.DrawableRes
 import com.usbprint.app.ui.common.Led
 import com.usbprint.app.ui.common.StatusLed
 import androidx.compose.foundation.clickable
@@ -60,7 +59,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import com.usbprint.app.R
-import com.usbprint.core.usb.Brand
 import com.usbprint.core.usb.HostBasedFirmware
 import com.usbprint.core.usb.PortStatus
 import com.usbprint.core.usb.PrinterState
@@ -264,31 +262,6 @@ private fun BrandLogo(printer: UsbPrinter) {
     } else {
         Text(printer.displayBrand, style = MaterialTheme.typography.headlineSmall)
     }
-}
-
-// Static references keep the bundled vectors available in resource-shrunk builds.
-@DrawableRes
-private fun brandLogoResource(brand: Brand): Int? = when (brand) {
-    Brand.BIXOLON -> R.drawable.brand_bixolon
-    Brand.BRADY -> R.drawable.brand_brady
-    Brand.BROTHER -> R.drawable.brand_brother
-    Brand.CANON -> R.drawable.brand_canon
-    Brand.CITIZEN -> R.drawable.brand_citizen
-    Brand.DELL -> R.drawable.brand_dell
-    Brand.DYMO -> R.drawable.brand_dymo
-    Brand.EPSON -> R.drawable.brand_epson
-    Brand.HP -> R.drawable.brand_hp
-    Brand.KONICA_MINOLTA -> R.drawable.brand_konica_minolta
-    Brand.KYOCERA -> R.drawable.brand_kyocera
-    Brand.LEXMARK -> R.drawable.brand_lexmark
-    Brand.OKI -> R.drawable.brand_oki
-    Brand.RICOH -> R.drawable.brand_ricoh
-    Brand.SAMSUNG -> R.drawable.brand_samsung
-    Brand.SHARP -> R.drawable.brand_sharp
-    Brand.TOSHIBA -> R.drawable.brand_toshiba
-    Brand.TSC -> R.drawable.brand_tsc
-    Brand.XEROX -> R.drawable.brand_xerox
-    else -> null
 }
 
 @Composable

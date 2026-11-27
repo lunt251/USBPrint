@@ -1,50 +1,58 @@
-# USBPrint
+<p align="center"><img src="docs/assets/usbprint.svg" width="96" height="96" alt=""></p>
 
-USBPrint is a free, ad-free Android app for printing directly to USB printers. It uses USB host (OTG), so the printer does not need Wi-Fi or a computer. USBPrint runs on Android 8.0 or newer.
+<h1 align="center">USBPrint</h1>
 
-**[Download the latest APK](https://github.com/lunt251/USBPrint/releases/latest)**
+<p align="center">Print directly to USB printers from Android.<br>No Wi-Fi printer, computer, account, or ads required.</p>
 
-## Get started
+<p align="center"><a href="https://github.com/lunt251/USBPrint/releases"><strong>Download from GitHub</strong></a> &nbsp;&middot;&nbsp; Android 8.0+ &nbsp;&middot;&nbsp; <a href="LICENSE">GPL-3.0-or-later</a></p>
 
-1. Download the `.apk` from GitHub Releases and open it on your Android device. If Android asks, allow installs from the browser or file manager you used to open it.
-2. Plug a powered-on printer into your phone or tablet using a USB host/OTG adapter. Open USBPrint and grant USB access when prompted.
-3. Use **Test page** on the printer card to check compatibility. To print your own files, open **Documents**, **Photos & images**, or **Web pages**. You can also use **Share → USBPrint** from another app.
+| <img src="docs/assets/usb.svg" width="36" height="36" alt=""><br>Connect directly | <img src="docs/assets/preview.svg" width="36" height="36" alt=""><br>Preview and edit | <img src="docs/assets/privacy.svg" width="36" height="36" alt=""><br>On-device printing |
+| :--- | :--- | :--- |
+| Connect a printer over USB OTG and try a test page. | Select pages, set exact dimensions, crop, and clean up scans. | Edit and print without uploading files or signing in. |
 
-> **Upgrading from a preview APK?** The public release uses a different signing key. Android won't install it over a debug build. Save anything you need before uninstalling the preview; uninstalling removes its app settings and print history.
+## Quick start
+
+1. Download the APK from [GitHub Releases](https://github.com/lunt251/USBPrint/releases) and open it on Android. If prompted, allow installs from the app you used to open the APK.
+2. Plug a powered-on printer into your Android device using a USB host (OTG) adapter. Open USBPrint and allow USB access.
+3. Tap **Test page** on the printer card. Then choose a file or web page in USBPrint, or use **Share → USBPrint** from another app.
+
+> **Upgrading from a preview APK?** The public release uses a different signing key. Android won't install it over a debug build. Save anything you need before uninstalling the preview; uninstalling removes its settings and print history.
 
 ## What you can print
 
-- **Files:** PDFs, images, text, HTML, and EPUB. Opening DOCX, ODT, or RTF directly imports the text only; for the original layout, print from the source app or export to PDF.
-- **Web pages:** Open a page in the built-in browser, optionally switch to Reader mode, then preview it before printing.
-- **From other apps:** Enable USBPrint via **Settings → Print from other apps**. Apps that support Android printing can then send jobs through the system print dialog.
+| Source | Support |
+| :--- | :--- |
+| **Local files** | PDFs, images, text, HTML, and EPUB. Open DOCX, ODT, and RTF as text, or print from their source app for the original layout. |
+| **Web pages** | Open a page in the built-in browser, optionally turn on Reader mode, then preview it before printing. |
+| **Other apps** | Turn on **Settings → Print from other apps** to use USBPrint in Android's system print dialog. |
 
-The preview lets you select pages, move and scale content, set paper sizes and dimensions, crop or straighten scans, clean up shadows, and export edited pages to PDF or images. USBPrint uses Material 3 Expressive and follows Android's wallpaper colors on supported devices.
+The preview includes page selection, crop and perspective correction, scan cleanup, custom paper sizes, and PDF or image export. Material 3 Expressive styling follows Android's wallpaper colors on supported devices.
 
 ## Printer compatibility
 
-USBPrint works with USB printers that understand one of its built-in drivers: **Canon CAPT**, **PCL raster**, **PostScript**, or **ESC/POS**. Compatibility depends on the model and printer language, not just the brand shown on the card. Wi-Fi and Bluetooth printing, IPP-over-USB, and downloadable driver packs are not included.
+USBPrint ships built-in drivers for **Canon CAPT**, **PCL raster**, **PostScript**, and **ESC/POS**. Your printer must support a compatible language; a logo on the printer card doesn't guarantee it. Wi-Fi, Bluetooth, IPP-over-USB, and downloadable driver packs are not included.
 
-A Canon LBP6000B printed successfully during development. Other CAPT profiles and other printer models may vary. Expand the printer card to see the detected model and driver, choose a different driver if needed, or use **Share report** to attach the details to a [compatibility issue](https://github.com/lunt251/USBPrint/issues/new).
+A **Canon LBP6000B** printed successfully during development. Other CAPT profiles and printer models may vary. If printing fails, expand the printer card to verify the chosen driver or try a manual override. Use **Share report** when filing a [compatibility issue](https://github.com/lunt251/USBPrint/issues/new); remove any serial number you don't want to share.
 
-If a CAPT printer runs out of paper, reload the tray and tap **Try again**. Cancelling stops USBPrint from sending more data, but the printer may still finish a page it has already buffered.
+For a CAPT paper-out error, load paper and tap **Try again**. Cancelling stops the app from sending more data, but a printer may finish a page it already buffered.
 
 ## Privacy
 
-USBPrint has no ads, accounts, or analytics. File editing, rendering, and USB printing run on-device and work offline. The web browser uses the internet to load pages. You can use Android's system picker instead of giving USBPrint full file access for its built-in browser.
+USBPrint has no ads, accounts, or analytics. Editing, rendering, and USB printing work offline. The built-in browser loads the sites you open and uses DuckDuckGo for address-bar searches. Android's system picker is available if you prefer not to grant full file access.
 
 ## Build from source
 
-Use JDK 17, Gradle 8.14, and Android SDK Platform 36. The [GitHub Actions workflow](.github/workflows/build.yml) builds debug APKs and runs unit tests and lint. Build a debug APK locally with:
+Use JDK 17, Gradle 8.14, and Android SDK Platform 36:
 
 ```sh
 gradle assembleDebug testDebugUnitTest lintDebug
 ```
 
-The APK is written to `app/build/outputs/apk/debug/`. For public release builds, CI provides an unsigned release APK for signing with the private release key. The public debug key in the repository is for test builds only.
+Debug APKs are available as [GitHub Actions](https://github.com/lunt251/USBPrint/actions) artifacts. Release builds are built from source in CI and signed separately from the public debug key. To build the text-only variant designed for F-Droid, see the [packaging notes](docs/FDROID.md). USBPrint is not currently listed on F-Droid.
 
 ## Credits and license
 
 - USBPrint is licensed under [GPL-3.0-or-later](LICENSE).
 - Canon CAPT support is a Kotlin port of [captdriver](https://github.com/mounaiban/captdriver). CI checks the Kotlin compressor against the original C implementation.
-- Google Sans Flex and Roboto Flex are licensed under the SIL Open Font License; see the [bundled font notices](app/src/main/assets/licenses).
-- Printer brand marks identify connected devices. They belong to their respective owners and do not imply endorsement.
+- [Google Sans Flex](https://github.com/googlefonts/googlesans-flex) and [Roboto Flex](https://github.com/TypeNetwork/Roboto-Flex) are licensed under the SIL Open Font License; see the [bundled notices](app/src/main/assets/licenses).
+- Manufacturer marks in the standard build identify connected devices. They belong to their respective owners and do not imply endorsement.

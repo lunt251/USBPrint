@@ -8,7 +8,11 @@ on:
   workflow_dispatch:
     inputs:
       release_apk:
-        description: Build the unsigned release APK
+        description: Build the unsigned release APKs
+        type: boolean
+        default: false
+      listing_screenshots:
+        description: Capture listing screenshots with a blank emulator and demo document
         type: boolean
         default: false
 
@@ -59,6 +63,18 @@ jobs:
           path: app/build/outputs/apk/release/*-unsigned.apk
           if-no-files-found: error
 
+      - name: Capture screenshots from the demo emulator
+        if: inputs.listing_screenshots
+        run: bash .github/scripts/listing-screenshots.sh app/build/outputs/apk/debug/app-debug.apk "$RUNNER_TEMP/listing"
+
+      - name: Upload listing screenshots
+        if: inputs.listing_screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: USBPrint-listing-screenshots
+          path: ${{ runner.temp }}/listing/*.png
+          if-no-files-found: error
+
       - name: Upload reports
         if: always()
         uses: actions/upload-artifact@v4
@@ -67,3 +83,32 @@ jobs:
           path: |
             **/build/reports/
           if-no-files-found: ignore
+
+  fdroid:
+    if: startsWith(github.ref, 'refs/tags/v') || inputs.release_apk
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.14"
+      - name: Build and lint the text-only F-Droid APK
+        run: gradle -PfdroidBuild=true assembleRelease lintRelease --stacktrace
+      - name: Verify the APK does not contain manufacturer logos
+        run: |
+          tools=("$ANDROID_HOME"/build-tools/*/aapt2)
+          "${tools[-1]}" dump resources app/build/outputs/apk/release/app-release-unsigned.apk > "$RUNNER_TEMP/fdroid-resources.txt"
+          if grep -F 'drawable/brand_' "$RUNNER_TEMP/fdroid-resources.txt"; then
+            echo 'Manufacturer logos must not ship in the F-Droid APK' >&2
+            exit 1
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: USBPrint-fdroid-unsigned-apk
+          path: app/build/outputs/apk/release/*-unsigned.apk
+          if-no-files-found: error

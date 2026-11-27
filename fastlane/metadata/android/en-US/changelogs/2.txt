@@ -1,0 +1,1 @@
+First public release. Print to compatible USB printers with built-in Canon CAPT, PCL raster, PostScript, and ESC/POS drivers. Includes page selection, custom paper sizes, scan cleanup, PDF and image export, and Android system printing. USB disconnects are reported, and Canon CAPT jobs show a reload-paper message before retrying.

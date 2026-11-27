@@ -1,0 +1,7 @@
+USBPrint prints from Android directly to compatible USB printers. Connect your printer with a USB host (OTG) adapter, grant access, and start with a test page.
+
+Print PDFs, photos, text files, and web pages. Preview and select pages before printing. Move, resize, or crop content, clean up scans, use custom paper sizes, and export edited pages to PDF or images. Enable USBPrint in Android's print settings to print from other apps.
+
+Built-in drivers cover selected Canon CAPT, PCL raster, PostScript, and ESC/POS printers. Compatibility depends on the model and the printer language. Wi-Fi, Bluetooth, and IPP-over-USB printing are not included. DOCX, ODT, and RTF open as text; print from the source app for its original layout.
+
+No ads, accounts, or analytics. File editing and USB printing work offline. The built-in web browser uses the internet to load pages. An Android 8.0 or later device with USB host support is required.
