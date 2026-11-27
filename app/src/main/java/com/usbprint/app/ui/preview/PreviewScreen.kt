@@ -190,7 +190,9 @@ fun PreviewScreen(app: USBPrintApp, onBack: () -> Unit) {
                     }
                 },
                 title = {
-                    Column {
+                    if (editMode) {
+                        Text(stringResource(R.string.preview_edit))
+                    } else Column {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             StatusLed(
                                 when {
@@ -222,8 +224,13 @@ fun PreviewScreen(app: USBPrintApp, onBack: () -> Unit) {
                             },
                             contentAlignment = Alignment.Center,
                         ) { Icon(Icons.Filled.Compare, stringResource(R.string.edit_compare)) }
+                        Button(
+                            onClick = { editMode = false },
+                            shapes = ButtonDefaults.shapes(),
+                            modifier = Modifier.padding(horizontal = 8.dp),
+                        ) { Text(stringResource(R.string.done)) }
                     }
-                    if (doc != null) {
+                    if (doc != null && !editMode) {
                         Box {
                             IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, stringResource(R.string.options)) }
                             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
@@ -325,20 +332,19 @@ fun PreviewScreen(app: USBPrintApp, onBack: () -> Unit) {
                                         onPerspective = { perspective = it },
                                         darknessSupported = darknessSupported,
                                     )
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        PrimaryScrollableTabRow(
-                                            selectedTabIndex = tabs.indexOf(tab),
-                                            edgePadding = 8.dp,
-                                            containerColor = Color.Transparent,
-                                            divider = {},
-                                            modifier = Modifier.weight(1f),
-                                        ) {
-                                            tabs.forEachIndexed { i, t ->
-                                                Tab(selected = t == tab, onClick = { tabIndex = i }, text = { Text(stringResource(t.label)) })
-                                            }
-                                        }
-                                        Button(onClick = { editMode = false }, shapes = ButtonDefaults.shapes(), modifier = Modifier.padding(horizontal = 8.dp)) {
-                                            Text(stringResource(R.string.done))
+                                    PrimaryScrollableTabRow(
+                                        selectedTabIndex = tabs.indexOf(tab),
+                                        edgePadding = 8.dp,
+                                        containerColor = Color.Transparent,
+                                        divider = {},
+                                    ) {
+                                        tabs.forEachIndexed { i, t ->
+                                            Tab(
+                                                selected = t == tab,
+                                                onClick = { tabIndex = i },
+                                                text = { Text(stringResource(t.label), maxLines = 1) },
+                                                icon = { Icon(t.icon, null) },
+                                            )
                                         }
                                     }
                                 }

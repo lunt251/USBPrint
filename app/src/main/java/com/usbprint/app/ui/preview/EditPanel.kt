@@ -18,6 +18,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.RotateLeft
 import androidx.compose.material.icons.automirrored.filled.RotateRight
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Crop
+import androidx.compose.material.icons.filled.Dashboard
+import androidx.compose.material.icons.filled.Print
+import androidx.compose.material.icons.filled.TextFields
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.AutoFixHigh
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.RestartAlt
@@ -59,13 +64,13 @@ import com.usbprint.app.edit.TextFont
 import com.usbprint.core.print.PaperSize
 import kotlin.math.roundToInt
 
-enum class EditTab(val label: Int) {
-    LAYOUT(R.string.edit_layout),
-    CROP(R.string.edit_crop),
-    CLEANUP(R.string.edit_cleanup),
-    ADJUST(R.string.edit_adjust),
-    TEXT(R.string.edit_text),
-    PRINT(R.string.edit_print),
+enum class EditTab(val label: Int, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
+    LAYOUT(R.string.edit_layout, Icons.Filled.Dashboard),
+    CROP(R.string.edit_crop, Icons.Filled.Crop),
+    CLEANUP(R.string.edit_cleanup, Icons.Filled.AutoFixHigh),
+    ADJUST(R.string.edit_adjust, Icons.Filled.Tune),
+    TEXT(R.string.edit_text, Icons.Filled.TextFields),
+    PRINT(R.string.edit_print, Icons.Filled.Print),
     ;
 
     companion object {
