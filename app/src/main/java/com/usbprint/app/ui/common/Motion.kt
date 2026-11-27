@@ -49,14 +49,12 @@ fun Modifier.containerTransform(key: String, shape: Shape, isSource: Boolean = f
         this@containerTransform.sharedBounds(
             sharedContentState = rememberSharedContentState(key),
             animatedVisibilityScope = anim,
-            enter = if (isSource) {
-                // Closing: the tile's container returns at once so the shape never disappears; its icon
-                // and label are held back separately with Modifier.lateContent().
-                fadeIn(tween(outMs, delayMillis = outMs / 2, easing = LinearOutSlowInEasing))
-            } else {
-                fadeIn(tween(CONTAINER_TRANSFORM_MS * 3 / 5, delayMillis = outMs, easing = LinearOutSlowInEasing))
-            },
-            exit = fadeOut(tween(outMs, easing = FastOutLinearInEasing)),
+            // The tile's filled container stays opaque both ways (only its icon/label fade, via
+            // Modifier.lateContent()); the screen crossfades on top, so the fill morphs tile -> screen colour.
+            enter = if (isSource) EnterTransition.None
+            else fadeIn(tween(CONTAINER_TRANSFORM_MS * 3 / 5, delayMillis = outMs, easing = LinearOutSlowInEasing)),
+            exit = if (isSource) ExitTransition.None
+            else fadeOut(tween(CONTAINER_TRANSFORM_MS * 2 / 5, easing = FastOutLinearInEasing)),
             boundsTransform = { _, _ -> tween(CONTAINER_TRANSFORM_MS, easing = EmphasizedEasing) },
             resizeMode = if (isSource) SharedTransitionScope.ResizeMode.RemeasureToBounds
             else SharedTransitionScope.ResizeMode.ScaleToBounds(ContentScale.Crop, Alignment.Center),
