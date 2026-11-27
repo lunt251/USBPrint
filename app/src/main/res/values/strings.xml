@@ -174,6 +174,21 @@
     <string name="export_saved">Saved to %1$s</string>
     <string name="export_failed">Couldn\'t save: %1$s</string>
 
+    <string name="paper_add">Add size</string>
+    <string name="paper_custom_title">Custom paper size</string>
+    <string name="paper_name">Name (optional)</string>
+    <string name="dim_width">Width</string>
+    <string name="dim_height">Height</string>
+    <string name="dim_locked">Keep proportions</string>
+    <string name="dim_unlocked">Stretch freely</string>
+    <string name="save">Save</string>
+    <string name="settings_units">Measurement units</string>
+    <string name="units_cm">Centimetres</string>
+    <string name="units_inch">Inches</string>
+    <string name="settings_dimensions">Show dimensions</string>
+    <string name="settings_dimensions_summary">Dimension lines for paper and content in the preview</string>
+    <string name="settings_custom_papers">Custom paper sizes</string>
+
     <!-- Web -->
     <string name="web_hint">Search or type an address</string>
     <string name="web_reader">Reader mode</string>

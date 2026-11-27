@@ -1,7 +1,15 @@
 package com.usbprint.app.ui.preview
 
 import android.graphics.Bitmap
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Canvas
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.rememberTextMeasurer
+import com.usbprint.app.settings.Units
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -47,9 +55,16 @@ import kotlin.math.abs
 import kotlin.math.hypot
 import kotlin.math.min
 
+/** Formats a length in points as cm or inches. */
+fun formatLength(pt: Float, units: Units): String = when (units) {
+    Units.CM -> "%.1f cm".format(pt / 72f * 2.54f)
+    Units.INCH -> "%.2f in".format(pt / 72f)
+}
+
 /**
  * One sheet, centered, with a paper shadow. Pinch (two fingers, or one finger when [singleFingerPan])
- * scales/moves the first page on the sheet, snapping to "fit" and to the center.
+ * scales/moves the first page on the sheet, snapping to "fit" and to the center. While moving, the
+ * content gets a dotted outline; [showDimensions] draws dimension lines for paper and content.
  */
 @Composable
 fun SheetView(
@@ -60,15 +75,20 @@ fun SheetView(
     onGestureStart: () -> Unit,
     onTransform: (PageEdit) -> Unit,
     modifier: Modifier = Modifier,
+    showDimensions: Boolean = false,
+    units: Units = Units.CM,
+    outline: Boolean = false,
 ) {
-    BoxWithConstraints(modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.Center) {
+    val dimPad = if (showDimensions) 40.dp else 16.dp
+    BoxWithConstraints(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        val density = LocalDensity.current
+        val padPx = with(density) { dimPad.toPx() }
         val (sw, sh) = composer.sheetSize(sheet)
-        val maxWpx = constraints.maxWidth.toFloat()
-        val maxHpx = constraints.maxHeight.toFloat()
-        val s = min(maxWpx / sw, maxHpx / sh)
+        val maxWpx = constraints.maxWidth - 2 * padPx
+        val maxHpx = constraints.maxHeight - 2 * padPx
+        val s = min(maxWpx / sw, maxHpx / sh).coerceAtLeast(0.01f)
         val wPx = (sw * s).toInt().coerceAtLeast(1)
         val hPx = (sh * s).toInt().coerceAtLeast(1)
-        val density = LocalDensity.current
 
         // Keep the last frame on screen while the next one renders.
         val holder = remember { arrayOfNulls<Bitmap>(1) }
@@ -79,6 +99,12 @@ fun SheetView(
 
         val haptics = LocalHapticFeedback.current
         val currentComposer by rememberUpdatedState(composer)
+        var moving by remember { mutableStateOf(false) }
+        val outlineAlpha by animateFloatAsState(
+            if (moving || outline) 1f else 0f,
+            animationSpec = MaterialTheme.motionScheme.fastEffectsSpec(),
+            label = "outline",
+        )
         val pageIndex = composer.sheetPages(sheet).firstOrNull()
         val cellFrac = composer.cells(sheet).firstOrNull()?.let { it.rect.width() / sw to it.rect.height() / sh } ?: (1f to 1f)
 
@@ -98,10 +124,11 @@ fun SheetView(
                         if (zoom != 1f || pan != Offset.Zero) {
                             if (!started) {
                                 started = true
+                                moving = true
                                 onGestureStart()
                             }
                             raw = raw.copy(
-                                scale = (raw.scale * zoom).coerceIn(0.2f, 5f),
+                                scale = (raw.scale * zoom).coerceIn(0.1f, 5f),
                                 offsetX = (raw.offsetX + pan.x / (wPx * cellFrac.first)).coerceIn(-1.5f, 1.5f),
                                 offsetY = (raw.offsetY + pan.y / (hPx * cellFrac.second)).coerceIn(-1.5f, 1.5f),
                             )
@@ -120,16 +147,82 @@ fun SheetView(
                         }
                     }
                 } while (event.changes.any { it.pressed })
+                moving = false
             }
         }
 
         Surface(
             modifier = Modifier.size(with(density) { wPx.toDp() }, with(density) { hPx.toDp() }).then(gestureModifier),
             shape = RoundedCornerShape(2.dp),
-            shadowElevation = 6.dp,
+            shadowElevation = 3.dp,
             color = Color.White,
         ) {
             bmp?.let { Image(it.asImageBitmap(), null, contentScale = ContentScale.FillBounds, modifier = Modifier.fillMaxSize()) }
+        }
+
+        val placement = composer.placement(sheet)
+        val primary = MaterialTheme.colorScheme.primary
+        val lineColor = MaterialTheme.colorScheme.onSurfaceVariant
+        val measurer = rememberTextMeasurer()
+        val labelStyle = MaterialTheme.typography.labelSmall
+        // Labels sit on the preview backdrop (surfaceContainer) and mask the line behind them.
+        val labelBg = MaterialTheme.colorScheme.surfaceContainer
+        Canvas(Modifier.fillMaxSize()) {
+            val ox = (size.width - wPx) / 2f
+            val oy = (size.height - hPx) / 2f
+            val content = placement?.second?.let { r -> Rect(ox + r.left * s, oy + r.top * s, ox + r.right * s, oy + r.bottom * s) }
+
+            if (content != null && outlineAlpha > 0f) {
+                drawRect(
+                    primary.copy(alpha = outlineAlpha),
+                    topLeft = content.topLeft, size = content.size,
+                    style = Stroke(1.5.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 4.dp.toPx()))),
+                )
+            }
+            if (!showDimensions) return@Canvas
+            val gap = 14.dp.toPx()
+            val ext = 4.dp.toPx()
+            fun label(text: String, center: Offset, vertical: Boolean, color: Color) {
+                val m = measurer.measure(text, labelStyle.copy(color = color))
+                val pad = 4.dp.toPx()
+                rotate(if (vertical) -90f else 0f, pivot = center) {
+                    drawRect(
+                        labelBg,
+                        topLeft = Offset(center.x - m.size.width / 2f - pad, center.y - m.size.height / 2f),
+                        size = Size(m.size.width + 2 * pad, m.size.height.toFloat()),
+                    )
+                    drawText(m, topLeft = Offset(center.x - m.size.width / 2f, center.y - m.size.height / 2f))
+                }
+            }
+            fun hDim(x1: Float, x2: Float, y: Float, fromY: Float, text: String, color: Color) {
+                val w = 1.dp.toPx()
+                drawLine(color, Offset(x1, fromY), Offset(x1, y + if (y > fromY) ext else -ext), w)
+                drawLine(color, Offset(x2, fromY), Offset(x2, y + if (y > fromY) ext else -ext), w)
+                drawLine(color, Offset(x1, y), Offset(x2, y), w)
+                val t = 3.dp.toPx()
+                drawLine(color, Offset(x1 - t, y + t), Offset(x1 + t, y - t), w * 1.5f)
+                drawLine(color, Offset(x2 - t, y + t), Offset(x2 + t, y - t), w * 1.5f)
+                label(text, Offset((x1 + x2) / 2f, y), false, color)
+            }
+            fun vDim(y1: Float, y2: Float, x: Float, fromX: Float, text: String, color: Color) {
+                val w = 1.dp.toPx()
+                drawLine(color, Offset(fromX, y1), Offset(x + if (x > fromX) ext else -ext, y1), w)
+                drawLine(color, Offset(fromX, y2), Offset(x + if (x > fromX) ext else -ext, y2), w)
+                drawLine(color, Offset(x, y1), Offset(x, y2), w)
+                val t = 3.dp.toPx()
+                drawLine(color, Offset(x - t, y1 + t), Offset(x + t, y1 - t), w * 1.5f)
+                drawLine(color, Offset(x - t, y2 + t), Offset(x + t, y2 - t), w * 1.5f)
+                label(text, Offset(x, (y1 + y2) / 2f), true, color)
+            }
+            // Paper: top and left.
+            hDim(ox, ox + wPx, oy - gap, oy - 2.dp.toPx(), formatLength(sw, units), lineColor)
+            vDim(oy, oy + hPx, ox - gap, ox - 2.dp.toPx(), formatLength(sh, units), lineColor)
+            // Content: bottom and right, measured from the content edges.
+            if (content != null && placement != null) {
+                val r = placement.second
+                hDim(content.left, content.right, oy + hPx + gap, minOf(content.bottom, oy + hPx) + 2.dp.toPx(), formatLength(r.width(), units), primary)
+                vDim(content.top, content.bottom, ox + wPx + gap, minOf(content.right, ox + wPx) + 2.dp.toPx(), formatLength(r.height(), units), primary)
+            }
         }
     }
 }

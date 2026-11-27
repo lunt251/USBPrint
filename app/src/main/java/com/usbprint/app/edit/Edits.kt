@@ -35,8 +35,11 @@ data class PageEdit(
     val scale: Float = 1f,
     val offsetX: Float = 0f,
     val offsetY: Float = 0f,
+    /** Non-uniform stretch when width/height are unlocked (1 = proportional). */
+    val stretchX: Float = 1f,
+    val stretchY: Float = 1f,
 ) {
-    val hasPixelEdits get() = this.copy(scale = 1f, offsetX = 0f, offsetY = 0f) != DEFAULT
+    val hasPixelEdits get() = this.copy(scale = 1f, offsetX = 0f, offsetY = 0f, stretchX = 1f, stretchY = 1f) != DEFAULT
     val hasCleanup get() = whiten > 0f || deshadow > 0f || sharpen > 0f || denoise > 0f || bwScan
 
     /** Copy everything except the page-specific crop/placement. */
@@ -44,7 +47,7 @@ data class PageEdit(
         brightness = o.brightness, contrast = o.contrast, saturation = o.saturation, warmth = o.warmth,
         grayscale = o.grayscale, whiten = o.whiten, deshadow = o.deshadow, sharpen = o.sharpen,
         denoise = o.denoise, bwScan = o.bwScan, rotation = o.rotation, scale = o.scale,
-        offsetX = o.offsetX, offsetY = o.offsetY,
+        offsetX = o.offsetX, offsetY = o.offsetY, stretchX = o.stretchX, stretchY = o.stretchY,
     )
 
     companion object {
@@ -106,7 +109,7 @@ data class DocEdits(
 
     fun toJson(): JSONObject = JSONObject().apply {
         put("layout", JSONObject().apply {
-            put("paper", layout.paper.name); put("orientation", layout.orientation.name); put("fit", layout.fit.name)
+            put("paper", layout.paper.name); put("paperLabel", layout.paper.displayName); put("paperW", layout.paper.widthPt); put("paperH", layout.paper.heightPt); put("orientation", layout.orientation.name); put("fit", layout.fit.name)
             put("margin", layout.marginMm.toDouble()); put("pps", layout.pagesPerSheet); put("borderless", layout.borderless)
             put("photoMode", layout.photoMode.name); put("grid", layout.gridCount); put("id", layout.idSize.name)
         })
@@ -126,7 +129,7 @@ data class DocEdits(
                     put("b", e.brightness.toDouble()); put("c", e.contrast.toDouble()); put("s", e.saturation.toDouble())
                     put("w", e.warmth.toDouble()); put("gray", e.grayscale); put("wh", e.whiten.toDouble())
                     put("ds", e.deshadow.toDouble()); put("sh", e.sharpen.toDouble()); put("dn", e.denoise.toDouble())
-                    put("bw", e.bwScan); put("sc", e.scale.toDouble()); put("ox", e.offsetX.toDouble()); put("oy", e.offsetY.toDouble())
+                    put("bw", e.bwScan); put("sc", e.scale.toDouble()); put("ox", e.offsetX.toDouble()); put("oy", e.offsetY.toDouble()); put("sx", e.stretchX.toDouble()); put("sy", e.stretchY.toDouble())
                 })
             }
         })
@@ -135,6 +138,14 @@ data class DocEdits(
     companion object {
         private inline fun <reified T : Enum<T>> JSONObject.enum(key: String, def: T): T =
             optString(key).let { s -> enumValues<T>().firstOrNull { it.name == s } } ?: def
+
+        private fun paperFrom(l: JSONObject, def: PaperSize): PaperSize {
+            val name = l.optString("paper")
+            PaperSize.entries.firstOrNull { it.name == name }?.let { return it }
+            val w = l.optInt("paperW", 0)
+            val h = l.optInt("paperH", 0)
+            return if (w > 0 && h > 0) PaperSize(name, l.optString("paperLabel", "Custom"), w, h) else def
+        }
 
         private fun JSONObject.f(key: String, def: Float) = optDouble(key, def.toDouble()).toFloat()
 
@@ -153,13 +164,13 @@ data class DocEdits(
                         crop = quad, rotation = e.optInt("rot"), brightness = e.f("b", 0f), contrast = e.f("c", 0f),
                         saturation = e.f("s", 0f), warmth = e.f("w", 0f), grayscale = e.optBoolean("gray"),
                         whiten = e.f("wh", 0f), deshadow = e.f("ds", 0f), sharpen = e.f("sh", 0f), denoise = e.f("dn", 0f),
-                        bwScan = e.optBoolean("bw"), scale = e.f("sc", 1f), offsetX = e.f("ox", 0f), offsetY = e.f("oy", 0f),
+                        bwScan = e.optBoolean("bw"), scale = e.f("sc", 1f), offsetX = e.f("ox", 0f), offsetY = e.f("oy", 0f), stretchX = e.f("sx", 1f), stretchY = e.f("sy", 1f),
                     )
                 }
             }
             return DocEdits(
                 layout = LayoutSettings(
-                    paper = l.enum("paper", d.layout.paper), orientation = l.enum("orientation", d.layout.orientation),
+                    paper = paperFrom(l, d.layout.paper), orientation = l.enum("orientation", d.layout.orientation),
                     fit = l.enum("fit", d.layout.fit), marginMm = l.f("margin", d.layout.marginMm),
                     pagesPerSheet = l.optInt("pps", 1), borderless = l.optBoolean("borderless"),
                     photoMode = l.enum("photoMode", d.layout.photoMode), gridCount = l.optInt("grid", 4),

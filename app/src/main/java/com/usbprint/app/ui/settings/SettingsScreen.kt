@@ -36,7 +36,18 @@ import androidx.compose.material.icons.outlined.Restore
 import androidx.compose.material.icons.outlined.Usb
 import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
+import androidx.compose.material3.InputChip
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.SquareFoot
+import androidx.compose.material.icons.outlined.Straighten
+import androidx.compose.foundation.layout.size
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import com.usbprint.app.settings.Units
+import com.usbprint.app.ui.preview.CustomPaperDialog
+import com.usbprint.app.ui.preview.PaperChips
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LargeTopAppBar
@@ -81,7 +92,15 @@ fun SettingsScreen(
     onShowHidden: (Boolean) -> Unit,
     onOpenHistory: () -> Unit,
     onClearEdits: () -> Unit,
+    onUnits: (Units) -> Unit,
+    onShowDimensions: (Boolean) -> Unit,
+    onAddPaper: (PaperSize) -> Unit,
+    onRemovePaper: (PaperSize) -> Unit,
 ) {
+    var addingPaper by remember { mutableStateOf(false) }
+    if (addingPaper) {
+        CustomPaperDialog(settings.units, onDismiss = { addingPaper = false }) { addingPaper = false; onAddPaper(it) }
+    }
     val context = LocalContext.current
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
     Scaffold(
@@ -141,13 +160,43 @@ fun SettingsScreen(
                     Row(
                         Icons.Outlined.Description, R.string.settings_default_paper,
                         supporting = {
-                            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp)) {
-                                PaperSize.entries.forEach { p ->
-                                    FilterChip(selected = settings.defaultPaper == p, onClick = { onDefaultPaper(p) }, label = { Text(p.displayName) })
+                            Column(Modifier.padding(top = 4.dp)) {
+                                PaperChips(PaperSize.entries + settings.customPapers, settings.defaultPaper, onDefaultPaper) { addingPaper = true }
+                            }
+                        },
+                    )
+                    if (settings.customPapers.isNotEmpty()) {
+                        Row(
+                            Icons.Outlined.Straighten, R.string.settings_custom_papers,
+                            supporting = {
+                                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp)) {
+                                    settings.customPapers.forEach { p ->
+                                        InputChip(
+                                            selected = false,
+                                            onClick = { onRemovePaper(p) },
+                                            label = { Text(p.displayName) },
+                                            trailingIcon = { Icon(Icons.Outlined.Close, stringResource(R.string.delete), Modifier.size(18.dp)) },
+                                        )
+                                    }
+                                }
+                            },
+                        )
+                    }
+                    Row(
+                        Icons.Outlined.SquareFoot, R.string.settings_units,
+                        supporting = {
+                            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(top = 8.dp)) {
+                                listOf(Units.CM to R.string.units_cm, Units.INCH to R.string.units_inch).forEachIndexed { i, (u, label) ->
+                                    SegmentedButton(
+                                        selected = settings.units == u,
+                                        onClick = { onUnits(u) },
+                                        shape = SegmentedButtonDefaults.itemShape(i, 2),
+                                    ) { Text(stringResource(label)) }
                                 }
                             }
                         },
                     )
+                    SwitchRow(Icons.Outlined.Straighten, R.string.settings_dimensions, R.string.settings_dimensions_summary, settings.showDimensions, onShowDimensions)
                     Row(
                         Icons.Outlined.Print, R.string.settings_print_service, R.string.settings_print_service_summary,
                         trailing = { Icon(Icons.AutoMirrored.Outlined.OpenInNew, null) },

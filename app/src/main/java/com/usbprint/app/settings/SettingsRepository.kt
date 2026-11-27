@@ -16,6 +16,8 @@ import kotlinx.coroutines.flow.map
 
 enum class ThemeMode { SYSTEM, LIGHT, DARK, BLACK }
 
+enum class Units { CM, INCH }
+
 data class AppSettings(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val dynamicColor: Boolean = true,
@@ -43,6 +45,9 @@ class SettingsRepository(private val context: Context) {
         val HIDDEN = booleanPreferencesKey("show_hidden")
         val READER = booleanPreferencesKey("reader_default")
         val DRIVERS = stringSetPreferencesKey("driver_overrides")
+        val UNITS = stringPreferencesKey("units")
+        val DIMENSIONS = booleanPreferencesKey("show_dimensions")
+        val PAPERS = stringSetPreferencesKey("custom_papers")
     }
 
     val settings: Flow<AppSettings> = context.dataStore.data.map { p ->
@@ -51,7 +56,12 @@ class SettingsRepository(private val context: Context) {
             dynamicColor = p[Keys.DYNAMIC] ?: true,
             autoOpenOnAttach = p[Keys.AUTO_OPEN] ?: false,
             rememberEdits = p[Keys.REMEMBER_EDITS] ?: true,
-            defaultPaper = p[Keys.PAPER]?.let { runCatching { PaperSize.valueOf(it) }.getOrNull() } ?: PaperSize.A4,
+            customPapers = p[Keys.PAPERS].orEmpty().mapNotNull(PaperSize::decode).sortedBy { it.displayName },
+            defaultPaper = p[Keys.PAPER]?.let { n ->
+                PaperSize.entries.firstOrNull { it.name == n } ?: p[Keys.PAPERS].orEmpty().mapNotNull(PaperSize::decode).firstOrNull { it.name == n }
+            } ?: PaperSize.A4,
+            units = p[Keys.UNITS]?.let { runCatching { Units.valueOf(it) }.getOrNull() } ?: Units.CM,
+            showDimensions = p[Keys.DIMENSIONS] ?: true,
             keepHistory = p[Keys.HISTORY] ?: true,
             showHiddenFiles = p[Keys.HIDDEN] ?: false,
             readerModeDefault = p[Keys.READER] ?: false,
@@ -69,6 +79,18 @@ class SettingsRepository(private val context: Context) {
     suspend fun setRememberEdits(enabled: Boolean) = context.dataStore.edit { it[Keys.REMEMBER_EDITS] = enabled }
 
     suspend fun setDefaultPaper(paper: PaperSize) = context.dataStore.edit { it[Keys.PAPER] = paper.name }
+
+    suspend fun setUnits(units: Units) = context.dataStore.edit { it[Keys.UNITS] = units.name }
+
+    suspend fun setShowDimensions(enabled: Boolean) = context.dataStore.edit { it[Keys.DIMENSIONS] = enabled }
+
+    suspend fun addCustomPaper(paper: PaperSize) = context.dataStore.edit { p ->
+        p[Keys.PAPERS] = p[Keys.PAPERS].orEmpty().filterNot { PaperSize.decode(it)?.name == paper.name }.toSet() + PaperSize.encode(paper)
+    }
+
+    suspend fun removeCustomPaper(paper: PaperSize) = context.dataStore.edit { p ->
+        p[Keys.PAPERS] = p[Keys.PAPERS].orEmpty().filterNot { PaperSize.decode(it)?.name == paper.name }.toSet()
+    }
 
     suspend fun setKeepHistory(enabled: Boolean) = context.dataStore.edit { it[Keys.HISTORY] = enabled }
 

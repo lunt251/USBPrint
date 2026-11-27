@@ -7,6 +7,15 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
+import com.usbprint.core.print.PaperSize
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -53,6 +62,8 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconToggleButton
+import androidx.compose.material.icons.filled.Straighten
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.PrimaryScrollableTabRow
@@ -107,6 +118,7 @@ fun PreviewScreen(app: USBPrintApp, onBack: () -> Unit) {
     val undoRedo by app.session.history.collectAsStateWithLifecycle()
     val printerState by app.printers.state.collectAsStateWithLifecycle()
     val printer = (printerState as? PrinterState.Connected)?.printer
+    val appSettings by app.currentSettings.collectAsStateWithLifecycle()
 
     var editMode by rememberSaveable { mutableStateOf(false) }
     var tabIndex by rememberSaveable { mutableStateOf(0) }
@@ -231,6 +243,10 @@ fun PreviewScreen(app: USBPrintApp, onBack: () -> Unit) {
                         ) { Text(stringResource(R.string.done)) }
                     }
                     if (doc != null && !editMode) {
+                        IconToggleButton(
+                            checked = appSettings.showDimensions,
+                            onCheckedChange = { on -> scope.launch { app.settings.setShowDimensions(on) } },
+                        ) { Icon(Icons.Filled.Straighten, stringResource(R.string.settings_dimensions)) }
                         Box {
                             IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, stringResource(R.string.options)) }
                             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
@@ -283,7 +299,17 @@ fun PreviewScreen(app: USBPrintApp, onBack: () -> Unit) {
                             HorizontalPager(state = pager, userScrollEnabled = !editMode, modifier = Modifier.fillMaxSize()) { i ->
                                 SheetView(
                                     composer = c, sheet = i, compare = compare, singleFingerPan = editMode,
-                                    onGestureStart = app.session::checkpoint,
+                                    showDimensions = appSettings.showDimensions,
+                                    units = appSettings.units,
+                                    outline = editMode && tab == EditTab.LAYOUT,
+                                    onGestureStart = {
+                                        app.session.checkpoint()
+                                        // Moving the page is an edit: open Edit on the Layout tab.
+                                        if (!editMode) {
+                                            editMode = true
+                                            tabIndex = tabs.indexOf(EditTab.LAYOUT).coerceAtLeast(0)
+                                        }
+                                    },
                                     onTransform = { pe ->
                                         val cur = app.session.edits.value
                                         val first = c.sheetPages(i).firstOrNull() ?: return@SheetView
@@ -319,11 +345,29 @@ fun PreviewScreen(app: USBPrintApp, onBack: () -> Unit) {
                                 shape = MaterialTheme.shapes.extraLarge.copy(bottomStart = CornerSize(0.dp), bottomEnd = CornerSize(0.dp)),
                             ) {
                                 Column(Modifier.navigationBarsPadding()) {
+                                    val slide = MaterialTheme.motionScheme.defaultSpatialSpec<IntOffset>()
+                                    val fade = MaterialTheme.motionScheme.defaultEffectsSpec<Float>()
+                                    val sizeSpec = MaterialTheme.motionScheme.defaultSpatialSpec<IntSize>()
+                                    AnimatedContent(
+                                        targetState = tab,
+                                        transitionSpec = {
+                                            // M3 shared axis X: slide 30dp in the tab direction with a fade-through.
+                                            val dir = if (tabs.indexOf(targetState) >= tabs.indexOf(initialState)) 1 else -1
+                                            (slideInHorizontally(slide) { dir * it / 8 } + fadeIn(fade)) togetherWith
+                                                (slideOutHorizontally(slide) { -dir * it / 8 } + fadeOut(fade)) using
+                                                SizeTransform(clip = true) { _, _ -> sizeSpec }
+                                        },
+                                        label = "edit-tab",
+                                    ) { shownTab ->
                                     EditControls(
-                                        tab = tab,
+                                        tab = shownTab,
                                         kind = doc.kind,
                                         a = EditActions(
                                             edits = edits, page = page, pageCount = c.pages.size,
+                                            baseSize = c.placement(sheet)?.let { (cell, _) -> c.baseSize(cell, c.contentAspect(cell.page)) },
+                                            units = appSettings.units,
+                                            papers = PaperSize.entries + appSettings.customPapers,
+                                            onAddPaper = { pp -> scope.launch { app.settings.addCustomPaper(pp) } },
                                             begin = app.session::checkpoint,
                                             live = { app.session.update(it, record = false) },
                                             commit = { app.session.update(it) },
@@ -332,6 +376,7 @@ fun PreviewScreen(app: USBPrintApp, onBack: () -> Unit) {
                                         onPerspective = { perspective = it },
                                         darknessSupported = darknessSupported,
                                     )
+                                    }
                                     PrimaryScrollableTabRow(
                                         selectedTabIndex = tabs.indexOf(tab),
                                         edgePadding = 8.dp,

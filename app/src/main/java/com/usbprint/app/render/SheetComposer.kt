@@ -149,25 +149,54 @@ class SheetComposer(
         canvas.scale(s, s)
         val paint = Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG)
         for (cell in cells(sheet)) {
-            val e = if (compare) PageEdit.DEFAULT.copy(scale = edits.page(cell.page).scale, offsetX = edits.page(cell.page).offsetX, offsetY = edits.page(cell.page).offsetY) else edits.page(cell.page)
+            val e = edits.page(cell.page).let { pe -> if (compare) PageEdit.DEFAULT.copy(scale = pe.scale, offsetX = pe.offsetX, offsetY = pe.offsetY, stretchX = pe.stretchX, stretchY = pe.stretchY) else pe }
             val cwPx = cell.rect.width() * s
             val chPx = cell.rect.height() * s
             val want = (max(cwPx, chPx) * max(1f, e.scale)).roundToInt()
             val bmp = processed(cell.page, e, want)
-            val fill = cell.forceFill || layout.fit == FitMode.FILL
-            val k0 = if (fill) max(cell.rect.width() / bmp.width, cell.rect.height() / bmp.height)
-            else min(cell.rect.width() / bmp.width, cell.rect.height() / bmp.height)
-            val k = k0 * e.scale
-            val dw = bmp.width * k
-            val dh = bmp.height * k
-            val cx = cell.rect.centerX() + e.offsetX * cell.rect.width()
-            val cy = cell.rect.centerY() + e.offsetY * cell.rect.height()
+            val dst = contentRect(cell, e, bmp.width.toFloat() / bmp.height)
             canvas.save()
             canvas.clipRect(cell.rect)
-            canvas.drawBitmap(bmp, null, RectF(cx - dw / 2, cy - dh / 2, cx + dw / 2, cy + dh / 2), paint)
+            canvas.drawBitmap(bmp, null, dst, paint)
             canvas.restore()
         }
         canvas.restore()
+    }
+
+    /** Width/height ratio of a page after rotation and crop. */
+    fun contentAspect(page: Int, e: PageEdit = edits.page(page)): Float {
+        val src = pages[page]
+        var w = src.widthPt
+        var h = src.heightPt
+        if (e.rotation % 180 != 0) { val t = w; w = h; h = t }
+        val q = e.crop.pts
+        val cw = ((q[2] - q[0]) + (q[4] - q[6])) / 2f
+        val ch = ((q[7] - q[1]) + (q[5] - q[3])) / 2f
+        return (w * cw.coerceAtLeast(0.01f)) / (h * ch.coerceAtLeast(0.01f))
+    }
+
+    /** Content size in points at scale 1 and no stretch (what "fit" or "fill" gives). */
+    fun baseSize(cell: Cell, aspect: Float): Pair<Float, Float> {
+        val fill = cell.forceFill || layout.fit == FitMode.FILL
+        val k = if (fill) max(cell.rect.width() / aspect, cell.rect.height()) else min(cell.rect.width() / aspect, cell.rect.height())
+        return aspect * k to k
+    }
+
+    /** Where the page content lands on the sheet, in points. */
+    fun contentRect(cell: Cell, e: PageEdit, aspect: Float): RectF {
+        val (bw, bh) = baseSize(cell, aspect)
+        val dw = bw * e.scale * e.stretchX
+        val dh = bh * e.scale * e.stretchY
+        val cx = cell.rect.centerX() + e.offsetX * cell.rect.width()
+        val cy = cell.rect.centerY() + e.offsetY * cell.rect.height()
+        return RectF(cx - dw / 2, cy - dh / 2, cx + dw / 2, cy + dh / 2)
+    }
+
+    /** First cell of a sheet and its content rect, for outlines and dimensions. */
+    fun placement(sheet: Int): Pair<Cell, RectF>? {
+        val cell = cells(sheet).firstOrNull() ?: return null
+        val e = edits.page(cell.page)
+        return cell to contentRect(cell, e, contentAspect(cell.page, e))
     }
 
     /** Renders a sheet for display at most [maxW]×[maxH] pixels. */
@@ -196,7 +225,7 @@ class SheetComposer(
     fun processed(page: Int, e: PageEdit, maxPx: Int): Bitmap {
         val bucket = bucket(maxPx)
         val src = pages[page]
-        val pixel = e.copy(scale = 1f, offsetX = 0f, offsetY = 0f)
+        val pixel = e.copy(scale = 1f, offsetX = 0f, offsetY = 0f, stretchX = 1f, stretchY = 1f)
         val base = "${System.identityHashCode(src)}/$bucket"
         val key = "$base/${pixel.hashCode()}"
         PageCache.get(key)?.let { return it }

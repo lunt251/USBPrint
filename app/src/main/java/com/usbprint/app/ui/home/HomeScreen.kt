@@ -45,6 +45,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.usbprint.app.R
 import com.usbprint.app.ui.Routes
+import com.usbprint.app.ui.common.containerTransform
 import com.usbprint.core.usb.PrinterState
 import com.usbprint.core.usb.UsbPrinter
 import kotlinx.coroutines.launch
@@ -145,7 +146,7 @@ private fun ActionTile(tile: Tile, colorIndex: Int, onOpen: (String) -> Unit, mo
     }
     Card(
         onClick = { onOpen(tile.route) },
-        modifier = modifier.aspectRatio(1f),
+        modifier = modifier.aspectRatio(1f).containerTransform("tile-${tile.route}", MaterialTheme.shapes.extraLarge),
         shape = MaterialTheme.shapes.extraLarge,
         colors = CardDefaults.cardColors(containerColor = container, contentColor = content),
     ) {

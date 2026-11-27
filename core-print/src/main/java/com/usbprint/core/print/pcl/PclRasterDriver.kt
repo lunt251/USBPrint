@@ -95,12 +95,13 @@ class PclRasterDriver(private val dpi: Int = 600, private val usePjl: Boolean = 
         out.reset()
     }
 
-    private fun paperCode(p: PaperSize) = when (p) {
+    private fun paperCode(p: PaperSize) = when (p.nearestPreset()) {
         PaperSize.A4 -> 26
         PaperSize.LETTER -> 2
         PaperSize.LEGAL -> 3
         PaperSize.A5 -> 25
         PaperSize.EXECUTIVE -> 1
+        else -> 26
     }
 
     companion object {

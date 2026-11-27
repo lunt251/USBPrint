@@ -84,12 +84,13 @@ class CaptDriver(private val profile: CaptProfile) : PrinterDriver {
     }
 
     private fun pageParams(job: PrintJobContext, paper: PaperSize, lineSize: Int, paperW: Int, paperH: Int): ByteArray {
-        val sz = when (paper) {
+        val sz = when (paper.nearestPreset()) {
             PaperSize.A4 -> 0x02
             PaperSize.A5 -> 0x03
             PaperSize.EXECUTIVE -> 0x0A
             PaperSize.LEGAL -> 0x0C
             PaperSize.LETTER -> 0x0D
+            else -> 0x02
         }
         val darkness = if (job.options.darkness in 0..15) job.options.darkness else 7
         val inkK = darkness shl 2

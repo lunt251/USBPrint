@@ -18,6 +18,17 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.RotateLeft
 import androidx.compose.material.icons.automirrored.filled.RotateRight
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.LockOpen
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.FilledTonalIconToggleButton
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.focus.onFocusChanged
+import com.usbprint.app.settings.Units
+import kotlin.math.abs
 import androidx.compose.material.icons.filled.Crop
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.Print
@@ -84,6 +95,11 @@ enum class EditTab(val label: Int, val icon: androidx.compose.ui.graphics.vector
 /** Callbacks shared by all edit controls. [begin] records an undo step once per drag. */
 class EditActions(
     val edits: DocEdits,
+    /** Content size at scale 1 (points) for the current page, if known. */
+    val baseSize: Pair<Float, Float>? = null,
+    val units: Units = Units.CM,
+    val papers: List<PaperSize> = PaperSize.entries,
+    val onAddPaper: (PaperSize) -> Unit = {},
     val page: Int,
     val pageCount: Int,
     val begin: () -> Unit,
@@ -182,9 +198,13 @@ private fun LayoutControls(kind: DocKind, a: EditActions) {
     fun set(nl: com.usbprint.app.edit.LayoutSettings) = a.commit(a.edits.copy(layout = nl))
 
     SectionLabel(stringResource(R.string.layout_paper))
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        PaperSize.entries.forEach { p ->
-            FilterChip(selected = l.paper == p, onClick = { set(l.copy(paper = p)) }, label = { Text(p.displayName) })
+    var adding by remember { mutableStateOf(false) }
+    PaperChips(a.papers, l.paper, onSelect = { set(l.copy(paper = it)) }, onAdd = { adding = true })
+    if (adding) {
+        CustomPaperDialog(a.units, onDismiss = { adding = false }) { p ->
+            adding = false
+            a.onAddPaper(p)
+            set(l.copy(paper = p))
         }
     }
     SectionLabel(stringResource(R.string.layout_orientation))
@@ -223,7 +243,8 @@ private fun LayoutControls(kind: DocKind, a: EditActions) {
         Segmented(listOf(FitMode.FIT to stringResource(R.string.layout_fit_page), FitMode.FILL to stringResource(R.string.layout_fill_page)), l.fit) {
             set(l.copy(fit = it))
         }
-        EditSlider(stringResource(R.string.layout_scale), a.pageEdit.scale, 0.25f..3f, ::pct, a) { a.livePage(a.pageEdit.copy(scale = it)) }
+        EditSlider(stringResource(R.string.layout_scale), a.pageEdit.scale, 0.1f..3f, ::pct, a) { a.livePage(a.pageEdit.copy(scale = it)) }
+        a.baseSize?.let { DimensionFields(a, it) }
     }
     if (!l.borderless && kind != DocKind.TEXT) {
         EditSlider(stringResource(R.string.layout_margins), l.marginMm, 0f..25f, { "${it.roundToInt()} mm" }, a) {
@@ -346,4 +367,127 @@ private fun PrintControls(a: EditActions, darknessSupported: Boolean) {
         }
         SwitchRow(stringResource(R.string.print_toner_save), p.tonerSave) { set(p.copy(tonerSave = it)) }
     }
+}
+
+private fun toPt(v: Float, units: Units) = if (units == Units.CM) v / 2.54f * 72f else v * 72f
+private fun fromPt(pt: Float, units: Units) = if (units == Units.CM) pt / 72f * 2.54f else pt / 72f
+private fun unitLabel(units: Units) = if (units == Units.CM) "cm" else "in"
+private fun fmt(pt: Float, units: Units) = if (units == Units.CM) "%.1f".format(fromPt(pt, units)) else "%.2f".format(fromPt(pt, units))
+
+/** Horizontally scrolling paper sizes: presets, then custom sizes, then "Add size". */
+@Composable
+fun PaperChips(papers: List<PaperSize>, selected: PaperSize, onSelect: (PaperSize) -> Unit, onAdd: () -> Unit) {
+    val list = if (selected in papers) papers else papers + selected
+    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        items(list, key = { it.name }) { p ->
+            FilterChip(selected = p == selected, onClick = { onSelect(p) }, label = { Text(p.displayName) })
+        }
+        item {
+            AssistChip(
+                onClick = onAdd,
+                label = { Text(stringResource(R.string.paper_add)) },
+                leadingIcon = { Icon(Icons.Filled.Add, null, Modifier.size(18.dp)) },
+            )
+        }
+    }
+}
+
+/** Name + width Ã— height in the user's units. */
+@Composable
+fun CustomPaperDialog(units: Units, onDismiss: () -> Unit, onSave: (PaperSize) -> Unit) {
+    var name by remember { mutableStateOf("") }
+    var w by remember { mutableStateOf("") }
+    var h by remember { mutableStateOf("") }
+    val wv = w.replace(',', '.').toFloatOrNull()
+    val hv = h.replace(',', '.').toFloatOrNull()
+    val valid = wv != null && hv != null && wv > 0f && hv > 0f
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.paper_custom_title)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(name, { name = it }, label = { Text(stringResource(R.string.paper_name)) }, singleLine = true)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        w, { w = it }, label = { Text(stringResource(R.string.dim_width)) }, singleLine = true,
+                        suffix = { Text(unitLabel(units)) },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        modifier = Modifier.weight(1f),
+                    )
+                    OutlinedTextField(
+                        h, { h = it }, label = { Text(stringResource(R.string.dim_height)) }, singleLine = true,
+                        suffix = { Text(unitLabel(units)) },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(enabled = valid, onClick = {
+                val wp = toPt(wv!!, units).roundToInt()
+                val hp = toPt(hv!!, units).roundToInt()
+                val label = name.trim().ifEmpty { "${fmt(wp.toFloat(), units)} Ã— ${fmt(hp.toFloat(), units)} ${unitLabel(units)}" }
+                onSave(PaperSize.custom(label, wp, hp))
+            }) { Text(stringResource(R.string.save)) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+    )
+}
+
+/** Width/height of the content; locked keeps proportions, unlocked stretches. */
+@Composable
+private fun DimensionFields(a: EditActions, base: Pair<Float, Float>) {
+    val e = a.pageEdit
+    val units = a.units
+    val wPt = base.first * e.scale * e.stretchX
+    val hPt = base.second * e.scale * e.stretchY
+    var locked by remember { mutableStateOf(abs(e.stretchX - e.stretchY) < 0.001f) }
+
+    fun applyWidth(pt: Float) {
+        a.commitPage(
+            if (locked) e.copy(scale = (pt / (base.first * e.stretchX)).coerceIn(0.05f, 10f))
+            else e.copy(stretchX = (pt / (base.first * e.scale)).coerceIn(0.05f, 10f)),
+        )
+    }
+    fun applyHeight(pt: Float) {
+        a.commitPage(
+            if (locked) e.copy(scale = (pt / (base.second * e.stretchY)).coerceIn(0.05f, 10f))
+            else e.copy(stretchY = (pt / (base.second * e.scale)).coerceIn(0.05f, 10f)),
+        )
+    }
+
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        DimField(stringResource(R.string.dim_width), wPt, units, Modifier.weight(1f), ::applyWidth)
+        FilledTonalIconToggleButton(
+            checked = locked,
+            onCheckedChange = { on ->
+                locked = on
+                // Locking returns to proportional, keeping the current width.
+                if (on && abs(e.stretchX - e.stretchY) > 0.001f) a.commitPage(e.copy(scale = e.scale * e.stretchX, stretchX = 1f, stretchY = 1f))
+            },
+        ) {
+            Icon(if (locked) Icons.Filled.Lock else Icons.Filled.LockOpen, stringResource(if (locked) R.string.dim_locked else R.string.dim_unlocked))
+        }
+        DimField(stringResource(R.string.dim_height), hPt, units, Modifier.weight(1f), ::applyHeight)
+    }
+}
+
+@Composable
+private fun DimField(label: String, valuePt: Float, units: Units, modifier: Modifier, onApply: (Float) -> Unit) {
+    var focused by remember { mutableStateOf(false) }
+    var text by remember { mutableStateOf(fmt(valuePt, units)) }
+    LaunchedEffect(valuePt, units, focused) { if (!focused) text = fmt(valuePt, units) }
+    OutlinedTextField(
+        value = text,
+        onValueChange = { v ->
+            text = v
+            v.replace(',', '.').toFloatOrNull()?.takeIf { it > 0f }?.let { onApply(toPt(it, units)) }
+        },
+        label = { Text(label) },
+        suffix = { Text(unitLabel(units)) },
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+        modifier = modifier.onFocusChanged { focused = it.isFocused },
+    )
 }
