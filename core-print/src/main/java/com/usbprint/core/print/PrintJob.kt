@@ -81,7 +81,7 @@ class PrintJob(
             }
         } catch (e: PrintCancelledException) {
             _state.value = JobState.Cancelled
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             _state.value = if (cancelRequested) JobState.Cancelled
             else JobState.Failed(e.message ?: e.javaClass.simpleName)
         } finally {

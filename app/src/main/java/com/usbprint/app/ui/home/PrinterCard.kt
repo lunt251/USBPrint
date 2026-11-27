@@ -1,6 +1,15 @@
 package com.usbprint.app.ui.home
 
 import android.annotation.SuppressLint
+import android.content.Intent
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.remember
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.expandVertically
@@ -64,9 +73,38 @@ fun PrinterCard(
     onAllowAccess: () -> Unit,
     onTestPage: (UsbPrinter) -> Unit,
     driverNameFor: (UsbPrinter) -> String? = { null },
+    /** (id, name) of every built-in driver, for the manual picker. */
+    driverChoices: List<Pair<String, String>> = emptyList(),
+    onSelectDriver: (UsbPrinter, String?) -> Unit = { _, _ -> },
 ) {
     var expanded by rememberSaveable { mutableStateOf(false) }
+    var picking by remember { mutableStateOf(false) }
     val connected = state as? PrinterState.Connected
+
+    if (picking && connected != null) {
+        AlertDialog(
+            onDismissRequest = { picking = false },
+            title = { Text(stringResource(R.string.driver_change)) },
+            text = {
+                LazyColumn {
+                    item {
+                        ListItem(
+                            headlineContent = { Text(stringResource(R.string.driver_automatic)) },
+                            supportingContent = { Text(stringResource(R.string.driver_automatic_summary)) },
+                            modifier = Modifier.clickable { picking = false; onSelectDriver(connected.printer, null) },
+                        )
+                    }
+                    items(driverChoices) { (id, name) ->
+                        ListItem(
+                            headlineContent = { Text(name) },
+                            modifier = Modifier.clickable { picking = false; onSelectDriver(connected.printer, id) },
+                        )
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { picking = false }) { Text(stringResource(R.string.close)) } },
+        )
+    }
 
     Card(
         onClick = { if (connected != null) expanded = !expanded },
@@ -86,7 +124,7 @@ fun PrinterCard(
                 PrinterState.Searching -> LoadingRow(stringResource(R.string.printer_searching))
                 is PrinterState.Identifying -> LoadingRow(stringResource(R.string.printer_identifying, state.label))
                 is PrinterState.NeedsPermission -> PermissionRow(state.label, onAllowAccess)
-                is PrinterState.Connected -> ConnectedContent(state.printer, expanded, onTestPage, driverNameFor(state.printer))
+                is PrinterState.Connected -> ConnectedContent(state.printer, expanded, onTestPage, driverNameFor(state.printer)) { picking = true }
             }
         }
     }
@@ -120,7 +158,7 @@ private fun PermissionRow(label: String, onAllow: () -> Unit) {
 }
 
 @Composable
-private fun ConnectedContent(printer: UsbPrinter, expanded: Boolean, onTestPage: (UsbPrinter) -> Unit, driverName: String?) {
+private fun ConnectedContent(printer: UsbPrinter, expanded: Boolean, onTestPage: (UsbPrinter) -> Unit, driverName: String?, onChangeDriver: () -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             BrandLogo(printer)
@@ -143,7 +181,7 @@ private fun ConnectedContent(printer: UsbPrinter, expanded: Boolean, onTestPage:
         enter = fadeIn() + expandVertically(),
         exit = fadeOut() + shrinkVertically(),
     ) {
-        PrinterDetails(printer, driverName)
+        PrinterDetails(printer, driverName, onChangeDriver)
     }
 }
 
@@ -186,7 +224,8 @@ private fun StatusChip(status: PortStatus?) {
 }
 
 @Composable
-private fun PrinterDetails(printer: UsbPrinter, driverName: String?) {
+private fun PrinterDetails(printer: UsbPrinter, driverName: String?, onChangeDriver: () -> Unit) {
+    val context = LocalContext.current
     val id = printer.deviceId
     val rows = buildList {
         add(R.string.detail_driver to driverName)
@@ -224,6 +263,20 @@ private fun PrinterDetails(printer: UsbPrinter, driverName: String?) {
                     }
                 }
             }
+        }
+        Spacer(Modifier.height(12.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = onChangeDriver) { Text(stringResource(R.string.driver_change)) }
+            OutlinedButton(onClick = {
+                val report = buildString {
+                    appendLine("USBPrint ${com.usbprint.app.BuildConfig.VERSION_NAME} printer report")
+                    appendLine("Android ${android.os.Build.VERSION.RELEASE} (API ${android.os.Build.VERSION.SDK_INT}), ${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}")
+                    rows.forEach { (label, value) -> appendLine("${context.getString(label)}: $value") }
+                    id?.raw?.let { appendLine("Device ID: $it") }
+                }
+                val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, report)
+                runCatching { context.startActivity(Intent.createChooser(send, null)) }
+            }) { Text(stringResource(R.string.printer_share_report)) }
         }
     }
 }

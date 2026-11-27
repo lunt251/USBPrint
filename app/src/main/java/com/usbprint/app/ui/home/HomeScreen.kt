@@ -50,6 +50,8 @@ fun HomeScreen(
     /** Starts a test page; returns an error message if it can't start. */
     onTestPage: (UsbPrinter) -> String?,
     driverNameFor: (UsbPrinter) -> String?,
+    driverChoices: List<Pair<String, String>>,
+    onSelectDriver: (UsbPrinter, String?) -> Unit,
     onOpen: (String) -> Unit,
 ) {
     val snackbar = remember { SnackbarHostState() }
@@ -77,6 +79,8 @@ fun HomeScreen(
                     state = printerState,
                     onAllowAccess = onAllowAccess,
                     driverNameFor = driverNameFor,
+                    driverChoices = driverChoices,
+                    onSelectDriver = onSelectDriver,
                     onTestPage = { printer ->
                         onTestPage(printer)?.let { msg -> scope.launch { snackbar.showSnackbar(msg) } }
                     },

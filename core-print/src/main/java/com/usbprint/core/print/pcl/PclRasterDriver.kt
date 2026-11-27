@@ -12,8 +12,8 @@ import java.io.ByteArrayOutputStream
  */
 class PclRasterDriver(private val dpi: Int = 600, private val usePjl: Boolean = true) : PrinterDriver {
 
-    override val id = "pcl_raster"
-    override val displayName = "PCL raster ($dpi dpi)"
+    override val id = "pcl_raster_${dpi}" + if (usePjl) "" else "_nopjl"
+    override val displayName = "PCL raster ($dpi dpi" + (if (usePjl) "" else ", no PJL") + ")"
     override val cancelTrailer: ByteArray = UEL + "\u001BE".toByteArray() + UEL
 
     override fun print(job: PrintJobContext) {

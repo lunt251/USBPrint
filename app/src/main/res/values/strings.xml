@@ -10,6 +10,7 @@
     <string name="printer_allow">Allow</string>
     <string name="printer_test_page">Test page</string>
     <string name="printer_tap_for_details">Tap for details</string>
+    <string name="printer_share_report">Share report</string>
     <string name="status_ready">Ready</string>
     <string name="status_paper_out">Paper out</string>
     <string name="status_offline">Offline</string>
@@ -35,10 +36,14 @@
     <string name="detail_status">Port status</string>
     <string name="detail_raw_id">IEEE 1284 Device ID</string>
     <string name="detail_firmware">Host-based firmware</string>
+    <string name="detail_driver">Driver</string>
+    <string name="driver_change">Change driver</string>
+    <string name="driver_automatic">Automatic</string>
+    <string name="driver_automatic_summary">Pick the driver from the printer\'s ID</string>
 
     <!-- Printing -->
     <string name="print_busy">A print job is already running</string>
-    <string name="print_no_driver">No driver for this printer yet. Please send the printer details to the developer.</string>
+    <string name="print_no_driver">No driver for this printer yet. Try “Change driver” in the printer details, or share the printer report with the developer.</string>
     <string name="print_needs_bidi">This printer needs a two-way USB connection</string>
     <string name="print_printing">Printing %1$s</string>
     <string name="print_preparing">Preparing…</string>
@@ -51,11 +56,130 @@
     <string name="try_again">Try again</string>
     <string name="cancel">Cancel</string>
     <string name="close">Close</string>
-    <string name="detail_driver">Driver</string>
+    <string name="done">Done</string>
+    <string name="reset">Reset</string>
+    <string name="delete">Delete</string>
+    <string name="search">Search</string>
+    <string name="options">More options</string>
+    <string name="undo">Undo</string>
+    <string name="redo">Redo</string>
+    <string name="forward">Forward</string>
+    <string name="reload">Reload</string>
+    <string name="notif_channel">Printing</string>
 
-    <!-- Placeholders -->
+    <!-- Common -->
     <string name="coming_soon">Coming in a later build</string>
     <string name="back">Back</string>
+
+    <!-- Files -->
+    <string name="files_recent">Recent</string>
+    <string name="files_no_recent">Nothing changed in the last 7 days</string>
+    <string name="files_photo_picker">Photo picker</string>
+    <string name="files_search_hint">Search files</string>
+    <string name="files_no_results">No matching files</string>
+    <string name="files_empty">No printable files here</string>
+    <string name="files_sort">Sort by</string>
+    <string name="sort_name">Name</string>
+    <string name="sort_date">Date</string>
+    <string name="sort_size">Size</string>
+    <string name="files_show_hidden">Show hidden files</string>
+    <string name="files_system_picker">Browse with system picker</string>
+    <string name="files_refresh">Refresh</string>
+    <string name="files_internal">Internal storage</string>
+    <string name="files_selected">%1$d selected</string>
+    <string name="files_open_selected">Print %1$d</string>
+    <string name="files_access_title">Allow file access</string>
+    <string name="files_access_body">USBPrint needs access to your files to show recent documents and browse folders. Files never leave your phone.</string>
+    <string name="files_access_body_photos">Allow access to show your recent photos and folders, or use the photo picker without granting anything.</string>
+    <string name="files_grant">Allow access</string>
+    <string name="files_grant_photos">Photos only</string>
+
+    <!-- Preview / edit -->
+    <string name="preview_no_printer">Connect a USB printer first</string>
+    <string name="preview_no_printer_short">No printer connected</string>
+    <string name="preview_loading">Opening…</string>
+    <string name="preview_sheet_of">Sheet %1$d of %2$d</string>
+    <string name="preview_edit">Edit</string>
+    <string name="preview_print">Print</string>
+    <string name="edit_layout">Layout</string>
+    <string name="edit_crop">Crop</string>
+    <string name="edit_cleanup">Clean up</string>
+    <string name="edit_adjust">Adjust</string>
+    <string name="edit_text">Text options</string>
+    <string name="edit_print">Print options</string>
+    <string name="edit_apply_all">Apply to all pages</string>
+    <string name="edit_compare">Hold to compare</string>
+    <string name="edit_reset_all">Reset all edits</string>
+    <string name="layout_paper">Paper size</string>
+    <string name="layout_orientation">Orientation</string>
+    <string name="layout_auto">Auto</string>
+    <string name="layout_portrait">Portrait</string>
+    <string name="layout_landscape">Landscape</string>
+    <string name="layout_photo_layout">Photo layout</string>
+    <string name="layout_one">One per page</string>
+    <string name="layout_grid">Grid</string>
+    <string name="layout_id">ID photo</string>
+    <string name="layout_per_sheet">%1$d per sheet</string>
+    <string name="layout_borderless">Borderless</string>
+    <string name="layout_pages_per_sheet">Pages per sheet</string>
+    <string name="layout_fit">Fit</string>
+    <string name="layout_fit_page">Fit to page</string>
+    <string name="layout_fill_page">Fill page</string>
+    <string name="layout_scale">Scale</string>
+    <string name="layout_margins">Margins</string>
+    <string name="crop_rotate_left">Rotate left</string>
+    <string name="crop_rotate_right">Rotate right</string>
+    <string name="crop_perspective">Perspective (move corners freely)</string>
+    <string name="crop_hint">Drag the corners. Turn on perspective to straighten a photographed page.</string>
+    <string name="cleanup_enhance">Enhance scan</string>
+    <string name="cleanup_suggest">Looks like a photographed page — enhance?</string>
+    <string name="cleanup_whiten">Whiten paper</string>
+    <string name="cleanup_shadows">Remove shadows &amp; wrinkles</string>
+    <string name="cleanup_sharpen">Sharpen text</string>
+    <string name="cleanup_denoise">Reduce noise</string>
+    <string name="cleanup_bw">Black &amp; white scan</string>
+    <string name="adjust_brightness">Brightness</string>
+    <string name="adjust_contrast">Contrast</string>
+    <string name="adjust_saturation">Saturation</string>
+    <string name="adjust_warmth">Warmth</string>
+    <string name="adjust_grayscale">Grayscale</string>
+    <string name="text_font">Font</string>
+    <string name="text_sans">Sans</string>
+    <string name="text_serif">Serif</string>
+    <string name="text_mono">Mono</string>
+    <string name="text_size">Size</string>
+    <string name="text_spacing">Line spacing</string>
+    <string name="text_align">Alignment</string>
+    <string name="text_left">Left</string>
+    <string name="text_center">Center</string>
+    <string name="text_right">Right</string>
+    <string name="text_justify">Justify</string>
+    <string name="text_bold">Bold</string>
+    <string name="print_copies">Copies</string>
+    <string name="print_range">Pages</string>
+    <string name="print_range_hint">All, or e.g. 1-3, 5</string>
+    <string name="print_darkness_auto">Printer default darkness</string>
+    <string name="print_darkness">Darkness</string>
+    <string name="print_toner_save">Toner save</string>
+    <string name="export_pdf">Save as PDF</string>
+    <string name="export_images">Save as images</string>
+    <string name="export_saved">Saved to %1$s</string>
+    <string name="export_failed">Couldn\'t save: %1$s</string>
+
+    <!-- Web -->
+    <string name="web_hint">Search or type an address</string>
+    <string name="web_reader">Reader mode</string>
+    <string name="web_history">History</string>
+    <string name="web_history_empty">No pages visited yet</string>
+    <string name="web_history_clear">Clear</string>
+    <string name="web_start">Recently visited</string>
+    <string name="web_print_failed">Couldn\'t capture this page</string>
+
+    <!-- History -->
+    <string name="history_title">Print history</string>
+    <string name="history_empty">Nothing printed yet</string>
+    <string name="history_clear">Clear history</string>
+    <string name="history_sheets">%1$d sheets</string>
 
     <!-- Settings -->
     <string name="settings_appearance">Appearance</string>
@@ -66,12 +190,23 @@
     <string name="theme_black">Black</string>
     <string name="settings_dynamic_color">Dynamic colour</string>
     <string name="settings_dynamic_color_summary">Use colours from your wallpaper</string>
-    <string name="settings_printer">Printer</string>
+    <string name="settings_printer">Printing</string>
     <string name="settings_auto_open">Open when a printer is plugged in</string>
     <string name="settings_auto_open_summary">Launch USBPrint automatically on USB connection</string>
+    <string name="settings_default_paper">Default paper size</string>
+    <string name="settings_print_service">Print from other apps</string>
+    <string name="settings_print_service_summary">Turn on the USBPrint service to print from Office, Docs, Chrome and others</string>
+    <string name="settings_keep_history">Keep print history</string>
+    <string name="settings_keep_history_summary">Store recent jobs so you can print them again</string>
+    <string name="settings_history_summary">See and reprint past jobs</string>
     <string name="settings_editing">Editing</string>
     <string name="settings_remember_edits">Remember edits per file</string>
     <string name="settings_remember_edits_summary">Reopening a file restores its edits</string>
+    <string name="settings_clear_edits">Forget all remembered edits</string>
+    <string name="settings_files_web">Files &amp; web</string>
+    <string name="settings_show_hidden_summary">Show files and folders starting with a dot</string>
+    <string name="settings_reader_default">Reader mode by default</string>
+    <string name="settings_reader_default_summary">Simplify web pages as soon as they load</string>
     <string name="settings_about">About</string>
     <string name="settings_version">Version</string>
     <string name="settings_license">License</string>
