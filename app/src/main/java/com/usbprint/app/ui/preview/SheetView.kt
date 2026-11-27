@@ -3,6 +3,10 @@ package com.usbprint.app.ui.preview
 import android.graphics.Bitmap
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Canvas
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.PathEffect
@@ -50,10 +54,15 @@ import com.usbprint.app.edit.PageEdit
 import com.usbprint.app.edit.Quad
 import com.usbprint.app.render.SheetComposer
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlin.math.abs
 import kotlin.math.hypot
 import kotlin.math.min
+
+/** Two workers so a long filter pass can't queue up behind every slider tick. */
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+private val RenderDispatcher = Dispatchers.Default.limitedParallelism(2)
 
 /** Formats a length in points as cm or inches. */
 fun formatLength(pt: Float, units: Units): String = when (units) {
@@ -91,11 +100,24 @@ fun SheetView(
         val wPx = (sw * s).toInt().coerceAtLeast(1)
         val hPx = (sh * s).toInt().coerceAtLeast(1)
 
-        // Keep the last frame on screen while the next one renders.
-        val holder = remember { arrayOfNulls<Bitmap>(1) }
-        val bmp by produceState(holder[0], composer, sheet, compare, wPx, hPx) {
-            value = withContext(Dispatchers.Default) { composer.renderSheet(sheet, wPx, hPx, compare) }
-            holder[0] = value
+        // Live gesture state stays local: drawing uses it directly, the session gets one update at the end.
+        var liveEdit by remember { mutableStateOf<PageEdit?>(null) }
+        val livePage = composer.sheetPages(sheet).firstOrNull()
+        val drawn = remember(composer, liveEdit) {
+            val le = liveEdit
+            if (le != null && livePage != null) SheetComposer(composer.source, composer.edits.withPage(livePage, le), maxSourcePx = 1800) else composer
+        }
+        // Once the session has caught up with the gesture, drop the local copy.
+        LaunchedEffect(composer) {
+            val le = liveEdit
+            if (le != null && livePage != null && composer.edits.page(livePage) == le) liveEdit = null
+        }
+        // Compute exact bitmaps off the main thread; until then the fast path shows the last good image.
+        var warmTick by remember { mutableIntStateOf(0) }
+        LaunchedEffect(composer, sheet, compare, wPx, hPx) {
+            delay(24) // let rapid slider ticks coalesce; a newer composer cancels this before it starts
+            withContext(RenderDispatcher) { runCatching { composer.warm(sheet, wPx, hPx, compare) } }
+            warmTick++
         }
 
         val haptics = LocalHapticFeedback.current
@@ -143,12 +165,13 @@ fun SheetView(
                             }
                             snappedScale = nearFit
                             snappedCenter = nearCenter
-                            onTransform(shown)
+                            liveEdit = shown
                             event.changes.forEach { if (it.positionChanged()) it.consume() }
                         }
                     }
                 } while (event.changes.any { it.pressed })
                 moving = false
+                liveEdit?.let(onTransform)
             }
         }
 
@@ -158,10 +181,13 @@ fun SheetView(
             shadowElevation = 3.dp,
             color = Color.White,
         ) {
-            bmp?.let { Image(it.asImageBitmap(), null, contentScale = ContentScale.FillBounds, modifier = Modifier.fillMaxSize()) }
+            Canvas(Modifier.fillMaxSize()) {
+                warmTick // redraw when exact bitmaps are ready
+                drawIntoCanvas { c -> drawn.drawSheet(sheet, c.nativeCanvas, size.width.toInt(), size.height.toInt(), compare, fast = true) }
+            }
         }
 
-        val placement = composer.placement(sheet)
+        val placement = drawn.placement(sheet)
         val primary = MaterialTheme.colorScheme.primary
         val lineColor = MaterialTheme.colorScheme.onSurfaceVariant
         val measurer = rememberTextMeasurer()
@@ -242,7 +268,7 @@ fun CropView(
         val maxW = constraints.maxWidth
         val maxH = constraints.maxHeight
         val geometryOnly = edit.copy(crop = Quad.FULL)
-        val bmp by produceState<Bitmap?>(null, composer, page, geometryOnly.rotation, maxW, maxH) {
+        val bmp by produceState<Bitmap?>(null, composer.source, page, geometryOnly.rotation, maxW, maxH) {
             value = withContext(Dispatchers.Default) {
                 val src = composer.processed(page, PageEdit.DEFAULT, maxOf(maxW, maxH))
                 Filters.geometry(src, PageEdit.DEFAULT.copy(rotation = edit.rotation))

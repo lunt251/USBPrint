@@ -20,8 +20,7 @@ import androidx.compose.material.icons.automirrored.filled.RotateRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.FilledTonalIconToggleButton
@@ -378,17 +377,16 @@ private fun fmt(pt: Float, units: Units) = if (units == Units.CM) "%.1f".format(
 @Composable
 fun PaperChips(papers: List<PaperSize>, selected: PaperSize, onSelect: (PaperSize) -> Unit, onAdd: () -> Unit) {
     val list = if (selected in papers) papers else papers + selected
-    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        items(list, key = { it.name }) { p ->
+    // Plain scrolling Row (not a lazy list) so it can live inside ListItem, which measures intrinsics.
+    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        list.forEach { p ->
             FilterChip(selected = p == selected, onClick = { onSelect(p) }, label = { Text(p.displayName) })
         }
-        item {
-            AssistChip(
-                onClick = onAdd,
-                label = { Text(stringResource(R.string.paper_add)) },
-                leadingIcon = { Icon(Icons.Filled.Add, null, Modifier.size(18.dp)) },
-            )
-        }
+        AssistChip(
+            onClick = onAdd,
+            label = { Text(stringResource(R.string.paper_add)) },
+            leadingIcon = { Icon(Icons.Filled.Add, null, Modifier.size(18.dp)) },
+        )
     }
 }
 

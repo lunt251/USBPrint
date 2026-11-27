@@ -141,7 +141,11 @@ class SheetComposer(
     }
 
     /** Draws sheet [sheet] in user orientation onto a canvas of [wPx]×[hPx]. */
-    fun drawSheet(sheet: Int, canvas: Canvas, wPx: Int, hPx: Int, compare: Boolean = false) {
+    /**
+     * [fast] = never render or filter on this thread: use cached bitmaps, falling back to the page's last
+     * good bitmap (a stand-in thumbnail) until [warm] has produced the exact one.
+     */
+    fun drawSheet(sheet: Int, canvas: Canvas, wPx: Int, hPx: Int, compare: Boolean = false, fast: Boolean = false) {
         val (sw, sh) = sheetSize(sheet)
         canvas.drawColor(Color.WHITE)
         val s = min(wPx / sw, hPx / sh)
@@ -152,8 +156,8 @@ class SheetComposer(
             val e = edits.page(cell.page).let { pe -> if (compare) PageEdit.DEFAULT.copy(scale = pe.scale, offsetX = pe.offsetX, offsetY = pe.offsetY, stretchX = pe.stretchX, stretchY = pe.stretchY) else pe }
             val cwPx = cell.rect.width() * s
             val chPx = cell.rect.height() * s
-            val want = (max(cwPx, chPx) * max(1f, e.scale)).roundToInt()
-            val bmp = processed(cell.page, e, want)
+            val want = max(cwPx, chPx).roundToInt()
+            val bmp = (if (fast) cachedOrStandIn(cell.page, e, want) else processed(cell.page, e, want)) ?: continue
             val dst = contentRect(cell, e, bmp.width.toFloat() / bmp.height)
             canvas.save()
             canvas.clipRect(cell.rect)
@@ -230,8 +234,36 @@ class SheetComposer(
         val key = "$base/${pixel.hashCode()}"
         PageCache.get(key)?.let { return it }
         val raw = PageCache.get(base) ?: src.render(bucket, bucket).also { PageCache.put(base, it) }
-        if (pixel == PageEdit.DEFAULT) return raw
-        return Filters.apply(raw, pixel).also { PageCache.put(key, it) }
+        val out = if (pixel == PageEdit.DEFAULT) raw else Filters.apply(raw, pixel).also { PageCache.put(key, it) }
+        PageCache.put("last/${System.identityHashCode(src)}", out)
+        return out
+    }
+
+    private fun keys(page: Int, e: PageEdit, maxPx: Int): Pair<String, String> {
+        val src = pages[page]
+        val pixel = e.copy(scale = 1f, offsetX = 0f, offsetY = 0f, stretchX = 1f, stretchY = 1f)
+        val base = "${System.identityHashCode(src)}/${bucket(maxPx)}"
+        return base to "$base/${pixel.hashCode()}"
+    }
+
+    private fun lastKey(page: Int) = "last/${System.identityHashCode(pages[page])}"
+
+    /** Exact cached bitmap, else the last one produced for this page; never computes. */
+    fun cachedOrStandIn(page: Int, e: PageEdit, maxPx: Int): Bitmap? {
+        val (base, key) = keys(page, e, maxPx)
+        val pixelDefault = e.copy(scale = 1f, offsetX = 0f, offsetY = 0f, stretchX = 1f, stretchY = 1f) == PageEdit.DEFAULT
+        return PageCache.get(if (pixelDefault) base else key) ?: PageCache.get(lastKey(page))
+    }
+
+    /** Computes every bitmap [drawSheet] needs for this sheet at this size (call off the main thread). */
+    fun warm(sheet: Int, wPx: Int, hPx: Int, compare: Boolean = false) {
+        val (sw, sh) = sheetSize(sheet)
+        val s = min(wPx / sw, hPx / sh)
+        for (cell in cells(sheet)) {
+            val pe = edits.page(cell.page)
+            val e = if (compare) PageEdit.DEFAULT else pe
+            processed(cell.page, e, max(cell.rect.width() * s, cell.rect.height() * s).roundToInt())
+        }
     }
 
     /** Snap requested sizes to a few buckets so the cache is reused. */

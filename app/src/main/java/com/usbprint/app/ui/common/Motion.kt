@@ -7,7 +7,11 @@ import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -22,7 +26,7 @@ import androidx.navigation.NavBackStackEntry
 val EmphasizedEasing = CubicBezierEasing(0.2f, 0f, 0f, 1f)
 val EmphasizedDecelerate = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1f)
 val EmphasizedAccelerate = CubicBezierEasing(0.3f, 0f, 0.8f, 0.15f)
-const val CONTAINER_TRANSFORM_MS = 500
+const val CONTAINER_TRANSFORM_MS = 450
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 val LocalSharedScope = compositionLocalOf<SharedTransitionScope?> { null }
@@ -38,10 +42,13 @@ fun Modifier.containerTransform(key: String, shape: Shape): Modifier {
         this@containerTransform.sharedBounds(
             sharedContentState = rememberSharedContentState(key),
             animatedVisibilityScope = anim,
-            enter = fadeIn(tween(CONTAINER_TRANSFORM_MS / 2, delayMillis = CONTAINER_TRANSFORM_MS / 5)),
-            exit = fadeOut(tween(CONTAINER_TRANSFORM_MS / 5)),
+            // Fade-through: the tile content leaves early, the screen arrives once the bounds are mostly there.
+            enter = fadeIn(tween(CONTAINER_TRANSFORM_MS * 3 / 5, delayMillis = CONTAINER_TRANSFORM_MS / 4, easing = LinearOutSlowInEasing)),
+            exit = fadeOut(tween(CONTAINER_TRANSFORM_MS / 4, easing = FastOutLinearInEasing)),
+            // Position and size move together on one emphasized curve (centre travels while it scales).
             boundsTransform = { _, _ -> tween(CONTAINER_TRANSFORM_MS, easing = EmphasizedEasing) },
-            resizeMode = SharedTransitionScope.ResizeMode.RemeasureToBounds,
+            // Scale, don't re-measure: the screen is laid out once at full size, so nothing reflows mid-animation.
+            resizeMode = SharedTransitionScope.ResizeMode.ScaleToBounds(ContentScale.Crop, Alignment.Center),
             clipInOverlayDuringTransition = OverlayClip(shape),
         )
     }
