@@ -1,7 +1,7 @@
 package com.usbprint.app.ui.home
 
-import android.annotation.SuppressLint
 import android.content.Intent
+import androidx.annotation.DrawableRes
 import com.usbprint.app.ui.common.Led
 import com.usbprint.app.ui.common.StatusLed
 import androidx.compose.foundation.clickable
@@ -29,11 +29,13 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
+import androidx.compose.material.icons.outlined.Usb
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -52,14 +54,13 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.usbprint.app.R
+import com.usbprint.core.usb.Brand
 import com.usbprint.core.usb.HostBasedFirmware
 import com.usbprint.core.usb.PortStatus
 import com.usbprint.core.usb.PrinterState
@@ -149,17 +150,20 @@ private fun LoadingRow(text: String, hint: String?) {
 }
 
 @Composable
-private fun PrinterGlyph() {
+private fun ConnectionGlyph(content: @Composable () -> Unit) {
     Surface(
         modifier = Modifier.size(56.dp),
         shape = MaterialTheme.shapes.large,
         color = MaterialTheme.colorScheme.secondaryContainer,
         contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
     ) {
-        Box(contentAlignment = Alignment.Center) {
-            Icon(painterResource(R.drawable.ic_printer), contentDescription = null, modifier = Modifier.size(32.dp))
-        }
+        Box(contentAlignment = Alignment.Center) { content() }
     }
+}
+
+@Composable
+private fun PrinterGlyph() = ConnectionGlyph {
+    Icon(painterResource(R.drawable.ic_printer), contentDescription = null, modifier = Modifier.size(32.dp))
 }
 
 @Composable
@@ -180,13 +184,12 @@ private fun DisconnectedRow() {
 
 @Composable
 private fun PermissionRow(label: String, onAllow: () -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        ConnectionGlyph {
+            Icon(Icons.Outlined.Usb, contentDescription = null, modifier = Modifier.size(28.dp))
+        }
         Column(Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                StatusLed(Led.BUSY)
-                Spacer(Modifier.width(8.dp))
-                Text(label, style = MaterialTheme.typography.titleMedium)
-            }
+            Text(label, style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(4.dp))
             Text(
                 stringResource(R.string.printer_needs_permission),
@@ -194,7 +197,6 @@ private fun PermissionRow(label: String, onAllow: () -> Unit) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        Spacer(Modifier.width(12.dp))
         Button(onClick = onAllow) { Text(stringResource(R.string.printer_allow)) }
     }
 }
@@ -249,23 +251,44 @@ private fun ConnectedContent(
     }
 }
 
-/** Shows `res/drawable/brand_<name>.xml` if present (monochrome, theme-tinted), else the brand as text. */
-@SuppressLint("DiscouragedApi")
 @Composable
 private fun BrandLogo(printer: UsbPrinter) {
-    val context = LocalContext.current
-    val resName = "brand_" + printer.brand.name.lowercase()
-    val resId = context.resources.getIdentifier(resName, "drawable", context.packageName)
-    if (resId != 0) {
+    val resId = brandLogoResource(printer.brand)
+    if (resId != null) {
         Icon(
             painter = painterResource(resId),
             contentDescription = printer.displayBrand,
             tint = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.height(24.dp),
+            modifier = Modifier.widthIn(max = 144.dp).height(24.dp),
         )
     } else {
         Text(printer.displayBrand, style = MaterialTheme.typography.headlineSmall)
     }
+}
+
+// Static references keep the bundled vectors available in resource-shrunk builds.
+@DrawableRes
+private fun brandLogoResource(brand: Brand): Int? = when (brand) {
+    Brand.BIXOLON -> R.drawable.brand_bixolon
+    Brand.BRADY -> R.drawable.brand_brady
+    Brand.BROTHER -> R.drawable.brand_brother
+    Brand.CANON -> R.drawable.brand_canon
+    Brand.CITIZEN -> R.drawable.brand_citizen
+    Brand.DELL -> R.drawable.brand_dell
+    Brand.DYMO -> R.drawable.brand_dymo
+    Brand.EPSON -> R.drawable.brand_epson
+    Brand.HP -> R.drawable.brand_hp
+    Brand.KONICA_MINOLTA -> R.drawable.brand_konica_minolta
+    Brand.KYOCERA -> R.drawable.brand_kyocera
+    Brand.LEXMARK -> R.drawable.brand_lexmark
+    Brand.OKI -> R.drawable.brand_oki
+    Brand.RICOH -> R.drawable.brand_ricoh
+    Brand.SAMSUNG -> R.drawable.brand_samsung
+    Brand.SHARP -> R.drawable.brand_sharp
+    Brand.TOSHIBA -> R.drawable.brand_toshiba
+    Brand.TSC -> R.drawable.brand_tsc
+    Brand.XEROX -> R.drawable.brand_xerox
+    else -> null
 }
 
 @Composable

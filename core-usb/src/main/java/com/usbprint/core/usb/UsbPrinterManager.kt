@@ -14,6 +14,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -35,6 +36,7 @@ class UsbPrinterManager(context: Context) {
     private val usbManager = appContext.getSystemService(Context.USB_SERVICE) as UsbManager
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var probeJob: Job? = null
+    private var reconnectMessageJob: Job? = null
     private var probingDevice: String? = null
     private var permissionRequested: String? = null
     private val interfaceLock = Any()
@@ -103,10 +105,19 @@ class UsbPrinterManager(context: Context) {
             probingDevice = null
         }
         if (device == null) {
-            if (current != null) _state.value = PrinterState.Disconnected
-            else if (_state.value != PrinterState.Disconnected) _state.value = PrinterState.Searching
+            if (current != null) {
+                _state.value = PrinterState.Disconnected
+                reconnectMessageJob = scope.launch {
+                    delay(10_000)
+                    _state.compareAndSet(PrinterState.Disconnected, PrinterState.Searching)
+                }
+            } else if (_state.value != PrinterState.Disconnected) {
+                _state.value = PrinterState.Searching
+            }
             return
         }
+        reconnectMessageJob?.cancel()
+        reconnectMessageJob = null
         val label = device.productName ?: device.manufacturerName ?: "USB printer"
         if (!usbManager.hasPermission(device)) {
             _state.value = PrinterState.NeedsPermission(label)
