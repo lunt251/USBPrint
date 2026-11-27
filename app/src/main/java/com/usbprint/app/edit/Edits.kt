@@ -183,6 +183,7 @@ data class DocEdits(
 /** Parses "1-3, 5, 8-" into zero-based indices; empty means all pages. */
 fun parsePageRange(spec: String, pageCount: Int): List<Int> {
     if (spec.isBlank()) return (0 until pageCount).toList()
+    if (spec.trim() == "0") return emptyList()
     val out = LinkedHashSet<Int>()
     for (part in spec.split(',', ';', ' ').map { it.trim() }.filter { it.isNotEmpty() }) {
         val dash = part.indexOf('-')

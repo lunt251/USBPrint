@@ -391,7 +391,7 @@ private fun RecentTile(item: FileItem, selected: Boolean, onClick: () -> Unit, o
             if (selected) SelectedBadge(Modifier.align(Alignment.TopEnd))
         }
         Text(
-            item.name, style = MaterialTheme.typography.labelMedium, maxLines = 2, overflow = TextOverflow.Ellipsis,
+            com.usbprint.app.ui.common.bidi(item.name), style = MaterialTheme.typography.labelMedium, maxLines = 2, overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(top = 6.dp, start = 2.dp, end = 2.dp),
         )
     }
@@ -420,7 +420,7 @@ private fun FileRow(item: FileItem, selected: Boolean, onClick: () -> Unit, onLo
                 Thumbnail(item, 40.dp, 40.dp)
             }
         },
-        headlineContent = { Text(item.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+        headlineContent = { Text(com.usbprint.app.ui.common.bidi(item.name), maxLines = 1, overflow = TextOverflow.Ellipsis) },
         supportingContent = {
             val info = if (item.isDir) DateUtils.getRelativeTimeSpanString(item.modified).toString()
             else "${Formatter.formatShortFileSize(context, item.size)} · ${DateUtils.getRelativeTimeSpanString(item.modified)}"

@@ -8,7 +8,14 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import com.usbprint.app.ui.common.Island
+import com.usbprint.app.ui.common.Led
+import com.usbprint.app.ui.common.StatusLed
+import com.usbprint.app.ui.common.bidi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -115,6 +122,16 @@ fun PreviewScreen(app: USBPrintApp, onBack: () -> Unit) {
     val sheet = pager.currentPage.coerceAtMost(((composer?.sheetCount ?: 1) - 1).coerceAtLeast(0))
     val page = composer?.sheetPages(sheet)?.firstOrNull() ?: 0
     val tabs = doc?.let { EditTab.forKind(it.kind) } ?: emptyList()
+
+    // All source pages (ignoring the range) for the checkbox strip.
+    val thumbComposer = remember(doc, edits.text, edits.layout.paper, edits.layout.orientation) {
+        doc?.let { SheetComposer(it, edits.copy(print = edits.print.copy(pageRange = "")), maxSourcePx = 400) }
+    }
+    val pageCount = thumbComposer?.pages?.size ?: 0
+    val selectedPages = remember(edits.print.pageRange, pageCount) {
+        if (edits.print.pageRange.isBlank()) (0 until pageCount).toSet()
+        else com.usbprint.app.edit.parsePageRange(edits.print.pageRange, pageCount).toSet()
+    }
     val tab = tabs.getOrNull(tabIndex) ?: tabs.firstOrNull()
 
     // Suggest (never auto-apply) clean-up for photographed documents.
@@ -171,12 +188,23 @@ fun PreviewScreen(app: USBPrintApp, onBack: () -> Unit) {
                 },
                 title = {
                     Column {
-                        Text(
-                            printer?.let { "${it.displayBrand} ${it.displayModel}" } ?: stringResource(R.string.preview_no_printer_short),
-                            maxLines = 1, overflow = TextOverflow.Ellipsis,
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            StatusLed(
+                                when {
+                                    printer == null -> Led.IDLE
+                                    app.printing.isBusy -> Led.BUSY
+                                    else -> Led.READY
+                                },
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                printer?.let { bidi("${it.displayBrand} ${it.displayModel}") } ?: stringResource(R.string.preview_no_printer_short),
+                                style = MaterialTheme.typography.titleMedium,
+                                maxLines = 1, overflow = TextOverflow.Ellipsis,
+                            )
+                        }
                         doc?.let {
-                            Text(it.title, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(bidi(it.title), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                     }
                 },
@@ -230,7 +258,11 @@ fun PreviewScreen(app: USBPrintApp, onBack: () -> Unit) {
                             Text(notice, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
-                    Box(Modifier.weight(1f).fillMaxWidth()) {
+                    Box(
+                        Modifier.weight(1f).fillMaxWidth().padding(horizontal = 12.dp)
+                            .clip(RoundedCornerShape(24.dp))
+                            .background(MaterialTheme.colorScheme.surfaceContainerLowest),
+                    ) {
                         if (editMode && tab == EditTab.CROP) {
                             CropView(
                                 composer = c, page = page, edit = edits.page(page), perspective = perspective,
@@ -300,15 +332,33 @@ fun PreviewScreen(app: USBPrintApp, onBack: () -> Unit) {
                                 }
                             }
                         } else {
-                            Row(
-                                Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            Island(
+                                Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 12.dp, vertical = 8.dp),
+                                radius = 28.dp,
                             ) {
-                                FilledTonalButton(onClick = { editMode = true }, modifier = Modifier.weight(1f).height(56.dp)) {
-                                    Icon(Icons.Filled.Edit, null); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.preview_edit))
-                                }
-                                Button(onClick = ::doPrint, modifier = Modifier.weight(1f).height(56.dp)) {
-                                    Icon(Icons.Filled.Print, null); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.preview_print))
+                                Column(Modifier.padding(12.dp)) {
+                                    if (pageCount > 1) {
+                                        PagePicker(
+                                            composer = thumbComposer!!,
+                                            selected = selectedPages,
+                                            onChange = { set ->
+                                                app.session.update(edits.copy(print = edits.print.copy(pageRange = rangeOf(set, pageCount))))
+                                            },
+                                        )
+                                        Spacer(Modifier.height(12.dp))
+                                    }
+                                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                        FilledTonalButton(onClick = { editMode = true }, modifier = Modifier.weight(1f).height(52.dp)) {
+                                            Icon(Icons.Filled.Edit, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.preview_edit))
+                                        }
+                                        Button(
+                                            onClick = ::doPrint,
+                                            enabled = selectedPages.isNotEmpty(),
+                                            modifier = Modifier.weight(1f).height(52.dp),
+                                        ) {
+                                            Icon(Icons.Filled.Print, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.preview_print))
+                                        }
+                                    }
                                 }
                             }
                         }

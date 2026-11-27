@@ -2,6 +2,10 @@ package com.usbprint.app.ui.home
 
 import android.annotation.SuppressLint
 import android.content.Intent
+import androidx.compose.foundation.BorderStroke
+import com.usbprint.app.ui.common.Led
+import com.usbprint.app.ui.common.PrinterArt
+import com.usbprint.app.ui.common.StatusLed
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -76,6 +80,8 @@ fun PrinterCard(
     /** (id, name) of every built-in driver, for the manual picker. */
     driverChoices: List<Pair<String, String>> = emptyList(),
     onSelectDriver: (UsbPrinter, String?) -> Unit = { _, _ -> },
+    /** A job is running: the drawn printer feeds paper. */
+    printing: Boolean = false,
 ) {
     var expanded by rememberSaveable { mutableStateOf(false) }
     var picking by remember { mutableStateOf(false) }
@@ -109,10 +115,11 @@ fun PrinterCard(
     Card(
         onClick = { if (connected != null) expanded = !expanded },
         enabled = connected != null,
-        shape = RoundedCornerShape(28.dp),
+        shape = RoundedCornerShape(24.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-            disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+            disabledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
             disabledContentColor = MaterialTheme.colorScheme.onSurface,
         ),
         modifier = Modifier
@@ -121,60 +128,100 @@ fun PrinterCard(
     ) {
         Column(Modifier.padding(20.dp).heightIn(min = 56.dp)) {
             when (state) {
-                PrinterState.Searching -> LoadingRow(stringResource(R.string.printer_searching))
-                is PrinterState.Identifying -> LoadingRow(stringResource(R.string.printer_identifying, state.label))
+                PrinterState.Searching -> LoadingRow(stringResource(R.string.printer_searching), stringResource(R.string.printer_searching_hint))
+                is PrinterState.Identifying -> LoadingRow(stringResource(R.string.printer_identifying, state.label), null)
                 is PrinterState.NeedsPermission -> PermissionRow(state.label, onAllowAccess)
-                is PrinterState.Connected -> ConnectedContent(state.printer, expanded, onTestPage, driverNameFor(state.printer)) { picking = true }
+                is PrinterState.Connected -> ConnectedContent(state.printer, expanded, printing, onTestPage, driverNameFor(state.printer)) { picking = true }
             }
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun LoadingRow(text: String) {
+private fun LoadingRow(text: String, hint: String?) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        LoadingIndicator(Modifier.size(44.dp))
+        Column(Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                StatusLed(Led.BUSY, live = true)
+                Spacer(Modifier.width(8.dp))
+                Text(text, style = MaterialTheme.typography.titleMedium)
+            }
+            if (hint != null) {
+                Spacer(Modifier.height(4.dp))
+                Text(hint, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
         Spacer(Modifier.width(16.dp))
-        Text(text, style = MaterialTheme.typography.titleMedium)
+        PrinterArt(Led.IDLE, feeding = false, dimmed = true, modifier = Modifier.size(width = 88.dp, height = 72.dp))
     }
 }
 
 @Composable
 private fun PermissionRow(label: String, onAllow: () -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(Icons.Outlined.Usb, contentDescription = null, modifier = Modifier.size(32.dp))
-        Spacer(Modifier.width(16.dp))
         Column(Modifier.weight(1f)) {
-            Text(label, style = MaterialTheme.typography.titleMedium)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                StatusLed(Led.BUSY)
+                Spacer(Modifier.width(8.dp))
+                Text(label, style = MaterialTheme.typography.titleMedium)
+            }
+            Spacer(Modifier.height(4.dp))
             Text(
                 stringResource(R.string.printer_needs_permission),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+        Spacer(Modifier.width(12.dp))
         Button(onClick = onAllow) { Text(stringResource(R.string.printer_allow)) }
     }
 }
 
+private fun ledFor(status: PortStatus?): Led = when (status?.summary) {
+    PortStatus.Summary.READY, null -> Led.READY
+    PortStatus.Summary.OFFLINE -> Led.IDLE
+    PortStatus.Summary.PAPER_OUT, PortStatus.Summary.ERROR -> Led.ERROR
+}
+
 @Composable
-private fun ConnectedContent(printer: UsbPrinter, expanded: Boolean, onTestPage: (UsbPrinter) -> Unit, driverName: String?, onChangeDriver: () -> Unit) {
+private fun ConnectedContent(
+    printer: UsbPrinter,
+    expanded: Boolean,
+    printing: Boolean,
+    onTestPage: (UsbPrinter) -> Unit,
+    driverName: String?,
+    onChangeDriver: () -> Unit,
+) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             BrandLogo(printer)
-            Spacer(Modifier.height(2.dp))
-            Text(printer.displayModel, style = MaterialTheme.typography.titleMedium)
+            Spacer(Modifier.height(4.dp))
+            Text(printer.displayModel, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(12.dp))
+            StatusChip(printer.status, printing)
         }
-        Icon(
-            if (expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
-            contentDescription = stringResource(R.string.printer_tap_for_details),
+        Spacer(Modifier.width(16.dp))
+        PrinterArt(
+            if (printing) Led.BUSY else ledFor(printer.status),
+            feeding = printing,
+            modifier = Modifier.size(width = 112.dp, height = 92.dp),
         )
     }
-    Spacer(Modifier.height(12.dp))
+    Spacer(Modifier.height(16.dp))
     Row(verticalAlignment = Alignment.CenterVertically) {
-        StatusChip(printer.status)
-        Spacer(Modifier.weight(1f))
         FilledTonalButton(onClick = { onTestPage(printer) }) { Text(stringResource(R.string.printer_test_page)) }
+        Spacer(Modifier.weight(1f))
+        Text(
+            stringResource(if (expanded) R.string.printer_hide_details else R.string.printer_tap_for_details),
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Icon(
+            if (expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(20.dp),
+        )
     }
     AnimatedVisibility(
         visible = expanded,
@@ -197,28 +244,31 @@ private fun BrandLogo(printer: UsbPrinter) {
             painter = painterResource(resId),
             contentDescription = printer.displayBrand,
             tint = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.height(28.dp),
+            modifier = Modifier.height(24.dp),
         )
     } else {
-        Text(printer.displayBrand, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        Text(printer.displayBrand, style = MaterialTheme.typography.headlineSmall)
     }
 }
 
 @Composable
-private fun StatusChip(status: PortStatus?) {
+private fun StatusChip(status: PortStatus?, printing: Boolean) {
     val scheme = MaterialTheme.colorScheme
-    val (label, dot) = when (status?.summary) {
-        PortStatus.Summary.READY -> R.string.status_ready to Color(0xFF2E7D32)
-        PortStatus.Summary.PAPER_OUT -> R.string.status_paper_out to scheme.error
-        PortStatus.Summary.OFFLINE -> R.string.status_offline to scheme.outline
-        PortStatus.Summary.ERROR -> R.string.status_error to scheme.error
-        null -> R.string.status_unknown to scheme.primary
+    val label = when {
+        printing -> R.string.status_printing
+        else -> when (status?.summary) {
+            PortStatus.Summary.READY -> R.string.status_ready
+            PortStatus.Summary.PAPER_OUT -> R.string.status_paper_out
+            PortStatus.Summary.OFFLINE -> R.string.status_offline
+            PortStatus.Summary.ERROR -> R.string.status_error
+            null -> R.string.status_unknown
+        }
     }
-    Surface(shape = CircleShape, color = scheme.secondaryContainer) {
-        Row(Modifier.padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(8.dp).background(dot, CircleShape))
+    Surface(shape = RoundedCornerShape(8.dp), color = scheme.surfaceContainerHighest) {
+        Row(Modifier.padding(horizontal = 10.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            StatusLed(if (printing) Led.BUSY else ledFor(status), live = printing)
             Spacer(Modifier.width(8.dp))
-            Text(stringResource(label), style = MaterialTheme.typography.labelLarge, color = scheme.onSecondaryContainer)
+            Text(stringResource(label), style = MaterialTheme.typography.labelLarge, color = scheme.onSurface)
         }
     }
 }

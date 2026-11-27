@@ -3,13 +3,21 @@
     <string name="app_name">USBPrint</string>
 
     <!-- Home -->
-    <string name="home_title">Welcome to USBPrint!</string>
+    <string name="home_title">Welcome to USBPrint</string>
     <string name="printer_searching">Searching for printer…</string>
     <string name="printer_identifying">Connecting to %1$s…</string>
     <string name="printer_needs_permission">Allow USBPrint to use this printer</string>
     <string name="printer_allow">Allow</string>
     <string name="printer_test_page">Test page</string>
-    <string name="printer_tap_for_details">Tap for details</string>
+    <string name="printer_tap_for_details">Details</string>
+    <string name="printer_hide_details">Hide details</string>
+    <string name="printer_searching_hint">Plug a printer into the USB port</string>
+    <string name="status_printing">Printing</string>
+    <string name="pages_title">Pages</string>
+    <string name="pages_selected">%1$d of %2$d selected</string>
+    <string name="pages_all">All</string>
+    <string name="pages_none">None</string>
+    <string name="pages_select">Choose pages</string>
     <string name="printer_share_report">Share report</string>
     <string name="status_ready">Ready</string>
     <string name="status_paper_out">Paper out</string>

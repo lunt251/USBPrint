@@ -53,6 +53,7 @@ fun HomeScreen(
     driverChoices: List<Pair<String, String>>,
     onSelectDriver: (UsbPrinter, String?) -> Unit,
     onOpen: (String) -> Unit,
+    printing: Boolean = false,
 ) {
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -70,8 +71,7 @@ fun HomeScreen(
             Column(Modifier.widthIn(max = 840.dp).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(20.dp)) {
                 Text(
                     text = stringResource(R.string.home_title),
-                    style = MaterialTheme.typography.headlineLarge,
-                    fontWeight = FontWeight.SemiBold,
+                    style = MaterialTheme.typography.headlineMedium,
                     modifier = Modifier.padding(top = 24.dp, bottom = 4.dp),
                 )
 
@@ -81,6 +81,7 @@ fun HomeScreen(
                     driverNameFor = driverNameFor,
                     driverChoices = driverChoices,
                     onSelectDriver = onSelectDriver,
+                    printing = printing,
                     onTestPage = { printer ->
                         onTestPage(printer)?.let { msg -> scope.launch { snackbar.showSnackbar(msg) } }
                     },
@@ -122,24 +123,26 @@ private fun ActionGrid(onOpen: (String) -> Unit) {
 @Composable
 private fun ActionTile(tile: Tile, colorIndex: Int, onOpen: (String) -> Unit, modifier: Modifier) {
     val scheme = MaterialTheme.colorScheme
-    val (container, content) = when (colorIndex) {
-        0 -> scheme.primaryContainer to scheme.onPrimaryContainer
-        1 -> scheme.tertiaryContainer to scheme.onTertiaryContainer
-        2 -> scheme.secondaryContainer to scheme.onSecondaryContainer
-        else -> scheme.surfaceContainerHigh to scheme.onSurface
-    }
     Card(
         onClick = { onOpen(tile.route) },
-        modifier = modifier.aspectRatio(1f),
-        shape = RoundedCornerShape(32.dp),
-        colors = CardDefaults.cardColors(containerColor = container, contentColor = content),
+        modifier = modifier.aspectRatio(1.15f),
+        shape = RoundedCornerShape(24.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, scheme.onSurface.copy(alpha = 0.08f)),
+        colors = CardDefaults.cardColors(containerColor = scheme.surfaceContainer, contentColor = scheme.onSurface),
     ) {
         Column(
             Modifier.fillMaxSize().padding(20.dp),
             verticalArrangement = Arrangement.SpaceBetween,
         ) {
-            Icon(tile.icon, contentDescription = null, modifier = Modifier.size(40.dp), tint = content)
-            Text(stringResource(tile.label), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Medium)
+            // The first tile is where most jobs start, so it carries the accent.
+            androidx.compose.material3.Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = if (colorIndex == 0) scheme.primaryContainer else scheme.surfaceContainerHighest,
+                contentColor = if (colorIndex == 0) scheme.onPrimaryContainer else scheme.onSurfaceVariant,
+            ) {
+                Icon(tile.icon, contentDescription = null, modifier = Modifier.padding(10.dp).size(24.dp))
+            }
+            Text(stringResource(tile.label), style = MaterialTheme.typography.titleMedium)
         }
     }
 }

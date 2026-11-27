@@ -79,6 +79,7 @@ fun AppNavigation(app: USBPrintApp, settings: AppSettings) {
                     driverChoices = driverChoices,
                     onSelectDriver = { p, id -> scope.launch { app.settings.setDriverOverride(p.key, id) } },
                     onOpen = { route -> nav.navigate(route) { launchSingleTop = true } },
+                    printing = printUi?.job?.isFinished == false,
                 )
             }
             composable(Routes.DOCUMENTS) {

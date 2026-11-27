@@ -61,7 +61,7 @@ fun HistoryScreen(
                 val canReprint = e.files.isNotEmpty() && e.files.all { File(it).exists() }
                 ListItem(
                     modifier = Modifier.clickable(enabled = canReprint) { onReprint(e) },
-                    headlineContent = { Text(e.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                    headlineContent = { Text(com.usbprint.app.ui.common.bidi(e.title), maxLines = 1, overflow = TextOverflow.Ellipsis) },
                     supportingContent = {
                         Text(
                             "${DateUtils.getRelativeTimeSpanString(e.time)} · ${e.printer} · " +

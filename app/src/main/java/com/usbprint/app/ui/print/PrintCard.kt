@@ -62,10 +62,10 @@ fun PrintCard(
             .padding(12.dp)
             .widthIn(max = 640.dp)
             .fillMaxWidth(),
-        shape = RoundedCornerShape(28.dp),
+        shape = RoundedCornerShape(24.dp),
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        tonalElevation = 6.dp,
-        shadowElevation = 8.dp,
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)),
+        shadowElevation = 12.dp,
     ) {
         Column(Modifier.padding(20.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -78,12 +78,19 @@ fun PrintCard(
                         Icon(Icons.Outlined.ErrorOutline, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(28.dp))
                         Spacer(Modifier.width(12.dp))
                     }
-                    else -> Unit
+                    else -> {
+                        com.usbprint.app.ui.common.StatusLed(
+                            com.usbprint.app.ui.common.Led.BUSY,
+                            live = job !is JobState.Cancelled,
+                            size = 10.dp,
+                        )
+                        Spacer(Modifier.width(12.dp))
+                    }
                 }
                 Column(Modifier.weight(1f)) {
-                    Text(headline(job, ui.title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text(headline(job, ui.title), style = MaterialTheme.typography.titleMedium)
                     Text(
-                        ui.printerName,
+                        com.usbprint.app.ui.common.bidi(ui.printerName),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
@@ -135,7 +142,7 @@ private fun headline(job: JobState, title: String): String = when (job) {
     is JobState.Failed -> stringResource(R.string.print_failed)
     JobState.Cancelled -> stringResource(R.string.print_cancelled)
     JobState.Cancelling -> stringResource(R.string.print_cancelling)
-    else -> stringResource(R.string.print_printing, title)
+    else -> stringResource(R.string.print_printing, com.usbprint.app.ui.common.bidi(title))
 }
 
 @Composable

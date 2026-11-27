@@ -18,7 +18,7 @@ enum class ThemeMode { SYSTEM, LIGHT, DARK, BLACK }
 
 data class AppSettings(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
-    val dynamicColor: Boolean = true,
+    val dynamicColor: Boolean = false,
     val autoOpenOnAttach: Boolean = false,
     val rememberEdits: Boolean = true,
     val defaultPaper: PaperSize = PaperSize.A4,
@@ -48,7 +48,7 @@ class SettingsRepository(private val context: Context) {
     val settings: Flow<AppSettings> = context.dataStore.data.map { p ->
         AppSettings(
             themeMode = p[Keys.THEME]?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() } ?: ThemeMode.SYSTEM,
-            dynamicColor = p[Keys.DYNAMIC] ?: true,
+            dynamicColor = p[Keys.DYNAMIC] ?: false,
             autoOpenOnAttach = p[Keys.AUTO_OPEN] ?: false,
             rememberEdits = p[Keys.REMEMBER_EDITS] ?: true,
             defaultPaper = p[Keys.PAPER]?.let { runCatching { PaperSize.valueOf(it) }.getOrNull() } ?: PaperSize.A4,
