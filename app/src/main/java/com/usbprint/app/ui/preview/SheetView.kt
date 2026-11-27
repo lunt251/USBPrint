@@ -287,17 +287,34 @@ fun CropView(
             Image(b.asImageBitmap(), null, contentScale = ContentScale.FillBounds, modifier = Modifier.fillMaxSize())
             Canvas(
                 Modifier.fillMaxSize().pointerInput(perspective) {
+                    // Targets: corners first (generous radius), then edges, then anywhere inside moves the crop.
                     detectDragGestures(
                         onDragStart = { pos ->
                             val p = quad.pts
+                            val corner = 40.dp.toPx()
+                            val edge = 28.dp.toPx()
                             var best = -1
                             var bestD = Float.MAX_VALUE
                             for (k in 0 until 4) {
                                 val d = hypot(p[k * 2] * w - pos.x, p[k * 2 + 1] * h - pos.y)
                                 if (d < bestD) { bestD = d; best = k }
                             }
-                            active = if (bestD < 56.dp.toPx()) best else -1
-                            if (active >= 0) onStart()
+                            active = if (bestD < corner) best else {
+                                // Distance to each edge segment (0 top, 1 right, 2 bottom, 3 left).
+                                var bestE = -1
+                                var bestED = Float.MAX_VALUE
+                                for (e in 0 until 4) {
+                                    val a0 = e; val a1 = (e + 1) % 4
+                                    val d = segDist(pos.x, pos.y, p[a0 * 2] * w, p[a0 * 2 + 1] * h, p[a1 * 2] * w, p[a1 * 2 + 1] * h)
+                                    if (d < bestED) { bestED = d; bestE = e }
+                                }
+                                when {
+                                    bestED < edge -> 4 + bestE
+                                    inside(pos.x / w, pos.y / h, p) -> 8
+                                    else -> 4 + bestE // outside the crop: still grab the nearest edge
+                                }
+                            }
+                            onStart()
                         },
                         onDragEnd = { active = -1 },
                         onDragCancel = { active = -1 },
@@ -306,22 +323,51 @@ fun CropView(
                         if (k < 0) return@detectDragGestures
                         change.consume()
                         val p = quad.pts.copyOf()
-                        val nx = (p[k * 2] + drag.x / w).coerceIn(0f, 1f)
-                        val ny = (p[k * 2 + 1] + drag.y / h).coerceIn(0f, 1f)
-                        if (perspective) {
-                            p[k * 2] = nx; p[k * 2 + 1] = ny
-                        } else {
-                            // Keep a rectangle: corners share x/y with their neighbours.
-                            var l = p[0]; var t = p[1]; var r = p[2]; var bt = p[5]
-                            when (k) {
-                                0 -> { l = nx; t = ny }
-                                1 -> { r = nx; t = ny }
-                                2 -> { r = nx; bt = ny }
-                                3 -> { l = nx; bt = ny }
-                            }
-                            if (r - l < 0.05f || bt - t < 0.05f) return@detectDragGestures
-                            p[0] = l; p[1] = t; p[2] = r; p[3] = t; p[4] = r; p[5] = bt; p[6] = l; p[7] = bt
+                        val dx = drag.x / w
+                        val dy = drag.y / h
+                        fun movePoint(i: Int, mx: Float, my: Float) {
+                            p[i * 2] = (p[i * 2] + mx).coerceIn(0f, 1f)
+                            p[i * 2 + 1] = (p[i * 2 + 1] + my).coerceIn(0f, 1f)
                         }
+                        when {
+                            k == 8 -> {
+                                // Move the whole crop, clamped so it stays inside the page.
+                                var mx = dx
+                                var my = dy
+                                for (i in 0 until 4) {
+                                    mx = mx.coerceIn(-p[i * 2], 1f - p[i * 2])
+                                    my = my.coerceIn(-p[i * 2 + 1], 1f - p[i * 2 + 1])
+                                }
+                                for (i in 0 until 4) movePoint(i, mx, my)
+                            }
+                            k >= 4 -> {
+                                val e = k - 4
+                                val a0 = e; val a1 = (e + 1) % 4
+                                if (perspective) {
+                                    movePoint(a0, dx, dy); movePoint(a1, dx, dy)
+                                } else when (e) {
+                                    0 -> { movePoint(0, 0f, dy); movePoint(1, 0f, dy) }
+                                    1 -> { movePoint(1, dx, 0f); movePoint(2, dx, 0f) }
+                                    2 -> { movePoint(2, 0f, dy); movePoint(3, 0f, dy) }
+                                    else -> { movePoint(3, dx, 0f); movePoint(0, dx, 0f) }
+                                }
+                            }
+                            perspective -> movePoint(k, dx, dy)
+                            else -> {
+                                // Keep a rectangle: corners share x/y with their neighbours.
+                                movePoint(k, dx, dy)
+                                val nx = p[k * 2]; val ny = p[k * 2 + 1]
+                                when (k) {
+                                    0 -> { p[6] = nx; p[3] = ny }
+                                    1 -> { p[4] = nx; p[1] = ny }
+                                    2 -> { p[2] = nx; p[7] = ny }
+                                    3 -> { p[0] = nx; p[5] = ny }
+                                }
+                            }
+                        }
+                        // Never let the crop collapse or flip.
+                        val minW = 0.05f
+                        if (p[2] - p[0] < minW || p[4] - p[6] < minW || p[7] - p[1] < minW || p[5] - p[3] < minW) return@detectDragGestures
                         onQuad(Quad(p))
                     }
                 },
@@ -345,7 +391,40 @@ fun CropView(
                     drawCircle(Color.White, radius = 11.dp.toPx(), center = c)
                     drawCircle(primary, radius = 8.dp.toPx(), center = c)
                 }
+                // Edge grab bars at each side's midpoint, along the edge direction.
+                for (e in 0 until 4) {
+                    val a0 = e; val a1 = (e + 1) % 4
+                    val ax = p[a0 * 2] * w; val ay = p[a0 * 2 + 1] * h
+                    val bx = p[a1 * 2] * w; val by = p[a1 * 2 + 1] * h
+                    val len = hypot(bx - ax, by - ay).coerceAtLeast(1f)
+                    val ux = (bx - ax) / len; val uy = (by - ay) / len
+                    val half = 12.dp.toPx()
+                    val m = Offset((ax + bx) / 2f, (ay + by) / 2f)
+                    val s0 = Offset(m.x - ux * half, m.y - uy * half)
+                    val s1 = Offset(m.x + ux * half, m.y + uy * half)
+                    drawLine(Color.White, s0, s1, strokeWidth = 8.dp.toPx(), cap = androidx.compose.ui.graphics.StrokeCap.Round)
+                    drawLine(primary, s0, s1, strokeWidth = 5.dp.toPx(), cap = androidx.compose.ui.graphics.StrokeCap.Round)
+                }
             }
         }
     }
+}
+
+private fun segDist(px: Float, py: Float, ax: Float, ay: Float, bx: Float, by: Float): Float {
+    val vx = bx - ax; val vy = by - ay
+    val len2 = vx * vx + vy * vy
+    val t = if (len2 == 0f) 0f else (((px - ax) * vx + (py - ay) * vy) / len2).coerceIn(0f, 1f)
+    return hypot(px - (ax + t * vx), py - (ay + t * vy))
+}
+
+/** Point-in-quad test (normalized coordinates), quad given clockwise. */
+private fun inside(x: Float, y: Float, p: FloatArray): Boolean {
+    var c = false
+    var j = 3
+    for (i in 0 until 4) {
+        val xi = p[i * 2]; val yi = p[i * 2 + 1]; val xj = p[j * 2]; val yj = p[j * 2 + 1]
+        if ((yi > y) != (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) c = !c
+        j = i
+    }
+    return c
 }
