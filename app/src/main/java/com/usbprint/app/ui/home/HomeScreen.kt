@@ -146,7 +146,7 @@ private fun ActionTile(tile: Tile, colorIndex: Int, onOpen: (String) -> Unit, mo
     }
     Card(
         onClick = { onOpen(tile.route) },
-        modifier = modifier.aspectRatio(1f).containerTransform("tile-${tile.route}", MaterialTheme.shapes.extraLarge),
+        modifier = modifier.aspectRatio(1f).containerTransform("tile-${tile.route}", MaterialTheme.shapes.extraLarge, isSource = true),
         shape = MaterialTheme.shapes.extraLarge,
         colors = CardDefaults.cardColors(containerColor = container, contentColor = content),
     ) {

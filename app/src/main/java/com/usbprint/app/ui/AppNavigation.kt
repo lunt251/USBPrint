@@ -63,7 +63,7 @@ object Routes {
     const val HISTORY = "history"
 }
 
-@OptIn(androidx.compose.animation.ExperimentalSharedTransitionApi::class)
+@OptIn(androidx.compose.animation.ExperimentalSharedTransitionApi::class, androidx.compose.material3.ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun AppNavigation(app: USBPrintApp, settings: AppSettings) {
     val nav = rememberNavController()
@@ -192,8 +192,8 @@ fun AppNavigation(app: USBPrintApp, settings: AppSettings) {
         AnimatedVisibility(
             visible = printUi != null,
             modifier = Modifier.align(Alignment.BottomCenter),
-            enter = slideInVertically { it } + fadeIn(),
-            exit = slideOutVertically { it } + fadeOut(),
+            enter = slideInVertically(MaterialTheme.motionScheme.defaultSpatialSpec()) { it } + fadeIn(MaterialTheme.motionScheme.defaultEffectsSpec()),
+            exit = slideOutVertically(MaterialTheme.motionScheme.fastSpatialSpec()) { it } + fadeOut(MaterialTheme.motionScheme.fastEffectsSpec()),
         ) {
             lastUi.value?.let { ui ->
                 PrintCard(

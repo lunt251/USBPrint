@@ -32,33 +32,46 @@ const val CONTAINER_TRANSFORM_MS = 450
 val LocalSharedScope = compositionLocalOf<SharedTransitionScope?> { null }
 val LocalNavAnimScope = compositionLocalOf<AnimatedVisibilityScope?> { null }
 
-/** Container transform: the element with this key morphs into the matching element on the next screen. */
+/**
+ * M3 container transform. Both ends share bounds on one emphasized curve.
+ * - The small end ([isSource], the tile) re-measures: its icon and label stay at their real size and are
+ *   only visible near the small end of the motion, so they never blow up to screen size.
+ * - The large end (the screen) is laid out once at full size and scaled, so nothing reflows mid-flight.
+ * Contents fade through: the outgoing content leaves in the first ~20%, the incoming fades in after it.
+ */
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
-fun Modifier.containerTransform(key: String, shape: Shape): Modifier {
+fun Modifier.containerTransform(key: String, shape: Shape, isSource: Boolean = false): Modifier {
     val shared = LocalSharedScope.current ?: return this
     val anim = LocalNavAnimScope.current ?: return this
+    val outMs = CONTAINER_TRANSFORM_MS / 5
     return with(shared) {
         this@containerTransform.sharedBounds(
             sharedContentState = rememberSharedContentState(key),
             animatedVisibilityScope = anim,
-            // Fade-through: the tile content leaves early, the screen arrives once the bounds are mostly there.
-            enter = fadeIn(tween(CONTAINER_TRANSFORM_MS * 3 / 5, delayMillis = CONTAINER_TRANSFORM_MS / 4, easing = LinearOutSlowInEasing)),
-            exit = fadeOut(tween(CONTAINER_TRANSFORM_MS / 4, easing = FastOutLinearInEasing)),
-            // Position and size move together on one emphasized curve (centre travels while it scales).
+            enter = if (isSource) {
+                // Closing: the tile's own content returns only for the last stretch, at tile size.
+                fadeIn(tween(CONTAINER_TRANSFORM_MS / 3, delayMillis = CONTAINER_TRANSFORM_MS * 2 / 3, easing = LinearOutSlowInEasing))
+            } else {
+                fadeIn(tween(CONTAINER_TRANSFORM_MS * 3 / 5, delayMillis = outMs, easing = LinearOutSlowInEasing))
+            },
+            exit = fadeOut(tween(outMs, easing = FastOutLinearInEasing)),
             boundsTransform = { _, _ -> tween(CONTAINER_TRANSFORM_MS, easing = EmphasizedEasing) },
-            // Scale, don't re-measure: the screen is laid out once at full size, so nothing reflows mid-animation.
-            resizeMode = SharedTransitionScope.ResizeMode.ScaleToBounds(ContentScale.Crop, Alignment.Center),
+            resizeMode = if (isSource) SharedTransitionScope.ResizeMode.RemeasureToBounds
+            else SharedTransitionScope.ResizeMode.ScaleToBounds(ContentScale.Crop, Alignment.Center),
             clipInOverlayDuringTransition = OverlayClip(shape),
         )
     }
 }
 
-/** Screen fades for destinations reached by a container transform (the bounds do the movement). */
+/**
+ * Screen-level transitions around a container transform: the shared bounds carry all the motion, the
+ * screen underneath stays put (M3: the outgoing screen remains static beneath the container).
+ */
 val containerEnter: AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition =
-    { fadeIn(tween(CONTAINER_TRANSFORM_MS)) }
+    { EnterTransition.None }
 val containerExit: AnimatedContentTransitionScope<NavBackStackEntry>.() -> ExitTransition =
-    { fadeOut(tween(CONTAINER_TRANSFORM_MS)) }
+    { ExitTransition.KeepUntilTransitionsFinished }
 
 /** M3 shared axis X for forward/back navigation between related screens. */
 val axisEnter: AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition =
