@@ -66,6 +66,7 @@ fun formatLength(pt: Float, units: Units): String = when (units) {
  * scales/moves the first page on the sheet, snapping to "fit" and to the center. While moving, the
  * content gets a dotted outline; [showDimensions] draws dimension lines for paper and content.
  */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun SheetView(
     composer: SheetComposer,

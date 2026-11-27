@@ -27,6 +27,10 @@ data class AppSettings(
     val keepHistory: Boolean = true,
     val showHiddenFiles: Boolean = false,
     val readerModeDefault: Boolean = false,
+    val units: Units = Units.CM,
+    val showDimensions: Boolean = true,
+    /** User-defined paper sizes, shown after the presets. */
+    val customPapers: List<PaperSize> = emptyList(),
     /** Printer key → driver id chosen by the user. */
     val driverOverrides: Map<String, String> = emptyMap(),
 )
