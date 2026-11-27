@@ -152,7 +152,7 @@ private fun LoadingRow(text: String, hint: String?) {
             }
         }
         Spacer(Modifier.width(16.dp))
-        PrinterArt(Led.IDLE, feeding = false, dimmed = true, modifier = Modifier.size(width = 88.dp, height = 72.dp))
+        PrinterArt(Led.IDLE, feeding = false, dimmed = true, modifier = Modifier.size(width = 104.dp, height = 84.dp))
     }
 }
 

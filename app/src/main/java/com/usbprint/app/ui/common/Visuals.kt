@@ -95,11 +95,11 @@ fun PrinterArt(state: Led, feeding: Boolean, modifier: Modifier = Modifier, dimm
         1f, if (state == Led.BUSY || dimmed) 0.3f else 1f,
         infiniteRepeatable(tween(700), RepeatMode.Reverse), label = "blink-a",
     )
-    val bodyTop = lerp(scheme.surfaceContainerHighest, Color.White, 0.10f)
-    val bodyBottom = scheme.surfaceContainerHigh
+    val bodyTop = lerp(scheme.surfaceContainerHighest, Color.White, 0.22f)
+    val bodyBottom = lerp(scheme.surfaceContainerHighest, Color.White, 0.06f)
     val slot = scheme.surfaceContainerLowest
 
-    Canvas(modifier.alpha(if (dimmed) 0.55f else 1f)) {
+    Canvas(modifier.alpha(if (dimmed) 0.8f else 1f)) {
         val w = size.width
         val h = size.height
         // Paper waiting in the rear tray.
@@ -112,7 +112,7 @@ fun PrinterArt(state: Led, feeding: Boolean, modifier: Modifier = Modifier, dimm
             Offset(0f, bodyY), Size(w, bodyH), CornerRadius(w * 0.08f),
         )
         // Hairline highlight on the top edge.
-        drawRoundRect(Color.White.copy(alpha = 0.10f), Offset(w * 0.04f, bodyY + 1.5f), Size(w * 0.92f, 2f), CornerRadius(1f))
+        drawRoundRect(Color.White.copy(alpha = 0.22f), Offset(w * 0.04f, bodyY + 1.5f), Size(w * 0.92f, 2f), CornerRadius(1f))
         // Output slot.
         val slotY = bodyY + bodyH * 0.62f
         drawRoundRect(slot, Offset(w * 0.18f, slotY), Size(w * 0.64f, bodyH * 0.12f), CornerRadius(4f))

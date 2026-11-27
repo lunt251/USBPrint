@@ -96,7 +96,7 @@ private fun PageThumb(composer: SheetComposer, index: Int, checked: Boolean, onT
         Modifier
             .size(width = 60.dp, height = 80.dp)
             .clip(shape)
-            .border(BorderStroke(if (checked) 2.dp else 1.dp, if (checked) scheme.primary else scheme.onSurface.copy(alpha = 0.10f)), shape)
+            .border(BorderStroke(if (checked) 2.dp else 1.dp, if (checked) scheme.onSurface.copy(alpha = 0.7f) else scheme.onSurface.copy(alpha = 0.10f)), shape)
             .clickable(onClick = onToggle),
     ) {
         Box(Modifier.fillMaxSize().background(Color.White).alpha(if (checked) 1f else 0.45f)) {
@@ -105,7 +105,7 @@ private fun PageThumb(composer: SheetComposer, index: Int, checked: Boolean, onT
         Checkbox(
             checked = checked,
             onCheckedChange = { onToggle() },
-            colors = CheckboxDefaults.colors(uncheckedColor = Color(0xFF6F6A63)),
+            colors = CheckboxDefaults.colors(checkedColor = Color(0xFF1C1A17), checkmarkColor = Color.White, uncheckedColor = Color(0xFF8A847A)),
             modifier = Modifier.align(Alignment.TopEnd).size(32.dp),
         )
         Text(
