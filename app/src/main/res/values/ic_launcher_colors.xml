@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Tones from the app's fallback (toner orange) M3 scheme. -->
+    <color name="ic_launcher_background">#FFDCBE</color>
+    <color name="ic_launcher_ink">#5A3009</color>
+    <color name="ic_launcher_paper">#FFFFFF</color>
+    <color name="ic_launcher_accent">#F2A65A</color>
+</resources>

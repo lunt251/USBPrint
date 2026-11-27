@@ -45,8 +45,6 @@ android {
     }
 
     lint {
-        // No app icon yet by design.
-        disable += "MissingApplicationIcon"
     }
 }
 

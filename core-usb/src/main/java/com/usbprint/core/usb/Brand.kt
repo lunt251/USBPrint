@@ -19,6 +19,13 @@ enum class Brand(val displayName: String, private val aliases: List<String>) {
     SHARP("Sharp", listOf("sharp")),
     TOSHIBA("Toshiba", listOf("toshiba")),
     DYMO("Dymo", listOf("dymo")),
+    STAR("Star Micronics", listOf("star micronics", "star")),
+    BIXOLON("Bixolon", listOf("bixolon")),
+    CITIZEN("Citizen", listOf("citizen")),
+    XPRINTER("Xprinter", listOf("xprinter")),
+    TSC("TSC", listOf("tsc")),
+    GODEX("Godex", listOf("godex")),
+    BRADY("Brady", listOf("brady")),
     OTHER("", emptyList());
 
     companion object {
