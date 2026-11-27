@@ -169,6 +169,8 @@ class TextSource(
         return cached
     }
 
+    // Layout.JUSTIFICATION_MODE_* and LineBreaker.* are the same values; the latter needs API 29.
+    @android.annotation.SuppressLint("WrongConstant")
     private fun paginate(edits: DocEdits, wPt: Float, hPt: Float): List<SourcePage> {
         val o = edits.text
         val paint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
