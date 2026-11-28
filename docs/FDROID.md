@@ -7,16 +7,16 @@ USBPrint is published as GPL-3.0-or-later source. The Android app uses AndroidX,
 From the source root, use JDK 17, Gradle 8.14, and Android SDK Platform 36:
 
 ```sh
-gradle -PfdroidBuild=true assembleRelease lintRelease
+gradle assembleRelease lintRelease
 ```
 
-The unsigned APK is `app/build/outputs/apk/release/app-release-unsigned.apk`. The `fdroidBuild` property excludes `app/src/wordmarks` because the redistribution terms for the supplied manufacturer artwork are not documented. Printer names are shown as text instead. The app icon and the OFL-licensed Google Sans Flex and Roboto Flex fonts are retained. Upstream font notices are bundled with the app.
+The unsigned APK is `app/build/outputs/apk/release/app-release-unsigned.apk`. The `fdroid` branch does not include manufacturer wordmarks or the standard build’s debug keystore. Printer brands are shown as text. No build flag or pre-build file removal is needed. The app icon and the OFL-licensed Google Sans Flex and Roboto Flex fonts are retained. Upstream font notices are bundled with the app.
 
 The GitHub Actions release check builds this variant and checks that its resource table contains no manufacturer wordmarks. The upstream Fastlane listing is under [`fastlane/metadata/android/en-US`](../fastlane/metadata/android/en-US). The workflow's `listing_screenshots` option captures the UI from a blank Android emulator using a synthetic document, without accessing a personal device.
 
 ## Draft metadata for `fdroiddata`
 
-After the `v1.0.0` tag exists, this is a starting point for `metadata/com.usbprint.app.yml` in a separate `fdroiddata` checkout:
+After the branch is tagged `fdroid-v1.0.0`, this is a starting point for `metadata/com.usbprint.app.yml` in a separate `fdroiddata` checkout:
 
 ```yaml
 Categories:
@@ -32,18 +32,13 @@ Repo: https://github.com/lunt251/USBPrint.git
 Builds:
   - versionName: 1.0.0
     versionCode: 2
-    commit: v1.0.0
+    commit: fdroid-v1.0.0
     subdir: app
     gradle:
       - yes
-    gradleprops:
-      - fdroidBuild=true
-    scandelete:
-      - app/src/wordmarks
-      - app/debug.keystore
 
 AutoUpdateMode: Version
-UpdateCheckMode: Tags
+UpdateCheckMode: Tags ^fdroid-v[0-9]
 CurrentVersion: 1.0.0
 CurrentVersionCode: 2
 ```

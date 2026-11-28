@@ -28,7 +28,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
@@ -217,7 +216,7 @@ private fun ConnectedContent(
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
         PrinterGlyph()
         Column(Modifier.weight(1f)) {
-            BrandLogo(printer)
+            Text(printer.displayBrand, style = MaterialTheme.typography.headlineSmall)
             Spacer(Modifier.height(4.dp))
             Text(printer.displayModel, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(12.dp))
@@ -246,21 +245,6 @@ private fun ConnectedContent(
         exit = fadeOut() + shrinkVertically(),
     ) {
         PrinterDetails(printer, driverName, onChangeDriver)
-    }
-}
-
-@Composable
-private fun BrandLogo(printer: UsbPrinter) {
-    val resId = brandLogoResource(printer.brand)
-    if (resId != null) {
-        Icon(
-            painter = painterResource(resId),
-            contentDescription = printer.displayBrand,
-            tint = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.widthIn(max = 144.dp).height(24.dp),
-        )
-    } else {
-        Text(printer.displayBrand, style = MaterialTheme.typography.headlineSmall)
     }
 }
 

@@ -4,8 +4,6 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
-val fdroidBuild = providers.gradleProperty("fdroidBuild").map(String::toBoolean).getOrElse(false)
-
 android {
     namespace = "com.usbprint.app"
     compileSdk = 36
@@ -16,25 +14,6 @@ android {
         targetSdk = 36
         versionCode = 2
         versionName = "1.0.0"
-    }
-
-    sourceSets.named("main") {
-        if (fdroidBuild) {
-            java.srcDir("src/brandText/java")
-        } else {
-            java.srcDir("src/wordmarks/java")
-            res.srcDir("src/wordmarks/res")
-        }
-    }
-
-    signingConfigs {
-        // Fixed, public debug key so every CI build installs as an update (debug builds only).
-        getByName("debug") {
-            storeFile = file("debug.keystore")
-            storePassword = "android"
-            keyAlias = "androiddebugkey"
-            keyPassword = "android"
-        }
     }
 
     buildTypes {
